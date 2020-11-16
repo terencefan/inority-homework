@@ -59,7 +59,7 @@ void topdown(Heap* heap, int i) {
 
     if (lchild < size)
     {
-        if (items[lchild]->weight <= items[rchild]->weight && items[lchild]->weight < items[i]->weight)
+        if ((rchild >= size || items[lchild]->weight <= items[rchild]->weight) && items[lchild]->weight < items[i]->weight)
         {
             swap(heap, lchild, i);
             topdown(heap, lchild);
@@ -85,7 +85,6 @@ void *HeapTop(Heap *heap, int *weight)
 
 void HeapPush(Heap *heap, int weight, void *data)
 {
-    // printf("push: %d\n", weight);
     HeapItem *item = calloc(1, sizeof(HeapItem));
     item->weight = weight;
     item->data = data;
