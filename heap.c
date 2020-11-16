@@ -7,16 +7,19 @@
 #define LCHILD(x) (((x + 1) << 1) - 1)
 #define RCHILD(x) ((x + 1) << 1)
 
-void pheap(Heap* heap) {
+void pheap(Heap *heap)
+{
     printf("heap: ");
-    for (int i = 0; i < heap->size; i++) {
-        HeapItem* item = heap->items[i];
+    for (int i = 0; i < heap->size; i++)
+    {
+        HeapItem *item = heap->items[i];
         printf("%d ", item->weight);
     }
     printf("\n");
 }
 
-void swap(Heap* heap, int i, int j) {
+void swap(Heap *heap, int i, int j)
+{
     HeapItem **items = heap->items;
     HeapItem *temp;
     temp = items[j];
@@ -38,7 +41,8 @@ void bottomup(Heap *heap, int i)
     }
 }
 
-void topdown(Heap* heap, int i) {
+void topdown(Heap *heap, int i)
+{
     int size = heap->size;
     if (i > size)
         return;
@@ -68,7 +72,8 @@ void topdown(Heap* heap, int i) {
     }
 }
 
-int HeapSize(Heap *heap) {
+int HeapSize(Heap *heap)
+{
     return heap->size;
 }
 
@@ -78,7 +83,7 @@ void *HeapTop(Heap *heap, int *weight)
     {
         return NULL;
     }
-    HeapItem* item = heap->items[0];
+    HeapItem *item = heap->items[0];
     *weight = item->weight;
     return item->data;
 }
@@ -110,7 +115,7 @@ void *HeapPop(Heap *heap, int *weight)
     }
     HeapItem *item = heap->items[0];
     *weight = item->weight;
-    void* result = item->data;
+    void *result = item->data;
 
     swap(heap, 0, heap->size - 1);
     heap->size--;
@@ -124,7 +129,7 @@ Heap *NewMinHeap(int capacity)
     Heap *heap = calloc(1, sizeof(Heap));
     heap->capacity = capacity;
     heap->size = 0;
-    heap->items = calloc(capacity + 1, sizeof(void*));
+    heap->items = calloc(capacity + 1, sizeof(void *));
     heap->Top = HeapTop;
     heap->Push = HeapPush;
     heap->Pop = HeapPop;

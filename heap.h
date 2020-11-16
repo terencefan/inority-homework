@@ -1,15 +1,17 @@
 typedef struct _Heap Heap;
 typedef struct _HeapItem HeapItem;
 
-struct _HeapItem {
+struct _HeapItem
+{
     int weight;
-    void* data;
+    void *data;
 };
 
-struct _Heap {
+struct _Heap
+{
     int size;
     int capacity;
-    HeapItem** items;
+    HeapItem **items;
 
     void *(*Top)(Heap *heap, int *weight);
     void (*Push)(Heap *heap, int weight, void *data);

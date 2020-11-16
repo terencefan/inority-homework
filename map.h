@@ -6,7 +6,8 @@ typedef struct _MapSlot MapSlot;
 typedef struct _MapEntity MapEntity;
 typedef struct _MapIterator MapIterator;
 
-struct _MapInner {
+struct _MapInner
+{
     int entityCount;
     int slotCount;
     MapEntity **slots;
@@ -26,18 +27,19 @@ struct _MapEntity
     void *val;
 };
 
-struct _MapIterator {
+struct _MapIterator
+{
     int slotIndex;
     int entityIndex;
-    Map* map;
+    Map *map;
     MapEntity *current;
-    void (*Next)(MapIterator* iter);
+    void (*Next)(MapIterator *iter);
 };
 
 Map *NewMap();
 
-void DeleteMap(Map* map, int option);
+void DeleteMap(Map *map, int option);
 
-MapIterator *NewMapIterator(Map* map);
+MapIterator *NewMapIterator(Map *map);
 
-void DeleteMapIterator(MapIterator* iter);
+void DeleteMapIterator(MapIterator *iter);

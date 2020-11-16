@@ -6,7 +6,7 @@
 #include "map.h"
 #include "array.h"
 
-#define SLOTS 128  // TODO: dynamic slots
+#define SLOTS 128 // TODO: dynamic slots
 
 #define MOD 1000000007
 
@@ -26,11 +26,12 @@ long hash(const char *word)
     return v;
 }
 
-MapEntity* NewMapEntity(const char* key, void* val) {
-    MapEntity* entity = calloc(1, sizeof(MapEntity));
+MapEntity *NewMapEntity(const char *key, void *val)
+{
+    MapEntity *entity = calloc(1, sizeof(MapEntity));
 
     int len = strlen(key);
-    char* mapKey = calloc(1, len + 1);
+    char *mapKey = calloc(1, len + 1);
     strcpy(mapKey, key);
     mapKey[len] = '\0';
 
@@ -98,12 +99,13 @@ void *_innerGet(Map *map, const char *key, Array **slot)
 
 void *MapGet(Map *map, const char *key)
 {
-    Array* slot;
+    Array *slot;
     return _innerGet(map, key, &slot);
 }
 
-int MapAdd(Map *map, const char *key, void *val) {
-    Array* slot;
+int MapAdd(Map *map, const char *key, void *val)
+{
+    Array *slot;
     if (NULL == _innerGet(map, key, &slot))
     {
         slot->Append(slot, NewMapEntity(key, val));
@@ -113,7 +115,8 @@ int MapAdd(Map *map, const char *key, void *val) {
     return -1;
 }
 
-int MapCount(Map *map) {
+int MapCount(Map *map)
+{
     return map->inner.entityCount;
 }
 
@@ -141,8 +144,9 @@ void next(MapIterator *iter)
     return;
 }
 
-MapIterator *NewMapIterator(Map* map) {
-    MapIterator* iter = calloc(1, sizeof(MapIterator));
+MapIterator *NewMapIterator(Map *map)
+{
+    MapIterator *iter = calloc(1, sizeof(MapIterator));
     iter->slotIndex = 0;
     iter->entityIndex = -1; // entity may start from the position (0, 0)
     iter->map = map;
@@ -152,6 +156,7 @@ MapIterator *NewMapIterator(Map* map) {
     return iter;
 }
 
-void DeleteMapIterator(MapIterator* iter) {
+void DeleteMapIterator(MapIterator *iter)
+{
     free(iter);
 }
