@@ -5,14 +5,30 @@
 
 #include "map.h"
 #include "array.h"
-
-#define SLOTS 128 // TODO: dynamic slots
+#include "linked_list.h"
 
 #define MOD 1000000007
 
+void *_innerGet(Map *map, const char *key, LinkedList **slot);
 void *MapGet(Map *map, const char *key);
 int MapAdd(Map *map, const char *key, void *val);
 int MapCount(Map *map);
+
+typedef struct _MapInner
+{
+    int entityCount;
+    int slotCount;
+    LinkedList **slots;
+} MapInner;
+
+typedef struct _MapIteratorInner
+{
+    int index;
+    Array *array;
+} MapIteratorInner;
+
+#define INNER(map) (MapInner *)((char *)map - sizeof(MapInner))
+#define INNER_ITER(iter) (MapIteratorInner *)((char *)iter - sizeof(MapIteratorInner))
 
 long hash(const char *word)
 {
@@ -24,6 +40,41 @@ long hash(const char *word)
         v %= MOD;
     }
     return v;
+}
+
+void map_resize(Map *map)
+{
+    MapInner *inner = INNER(map);
+    if (inner->entityCount < inner->slotCount)
+        return;
+    printf("resize\n");
+
+    int newSlotCount = inner->slotCount << 1;
+    LinkedList **slots = inner->slots;
+    int slotCount = inner->slotCount;
+    inner->slots = calloc(newSlotCount, sizeof(void *));
+    inner->slotCount = newSlotCount;
+
+    for (int i = 0; i < slotCount; i++)
+    {
+        LinkedList *slot = slots[i];
+        if (slot == NULL)
+            continue;
+        LinkedListIterator *iter = NewLinkedListIterator(slot);
+
+        for (; !iter->End(iter); iter->Next(iter))
+        {
+            MapEntity *entity = iter->Current(iter);
+            LinkedList *target;
+            _innerGet(map, entity->key, &target);
+            target->Add(target, entity);
+        }
+
+        DeleteLinkedList(slot);
+        DeleteLinkedListIterator(iter);
+    }
+
+    free(slots);
 }
 
 MapEntity *NewMapEntity(const char *key, void *val)
@@ -45,15 +96,12 @@ MapEntity *NewMapEntity(const char *key, void *val)
  */
 Map *NewMap()
 {
-    Map *map = calloc(1, sizeof(Map));
-    map->inner.entityCount = 0;
-    map->inner.slotCount = SLOTS;
-    map->inner.slots = calloc(SLOTS, sizeof(void *));
-    for (int i = 0; i < SLOTS; i++)
-    {
-        map->inner.slots[i] = (void *)NewArray();
-    }
+    MapInner *inner = calloc(1, sizeof(MapInner) + sizeof(Map));
+    inner->entityCount = 0;
+    inner->slotCount = 64;
+    inner->slots = calloc(inner->slotCount, sizeof(void *));
 
+    Map *map = (Map *)((char *)inner + sizeof(MapInner));
     map->Get = MapGet;
     map->Add = MapAdd;
     map->Count = MapCount;
@@ -62,54 +110,65 @@ Map *NewMap()
 
 void DeleteMap(Map *map, int option)
 {
-    for (int slotIndex = 0; slotIndex < map->inner.slotCount; slotIndex++)
+    MapInner *inner = INNER(map);
+    for (int slotIndex = 0; slotIndex < inner->slotCount; slotIndex++)
     {
-        Array *slot = (Array *)map->inner.slots[slotIndex];
-        for (int entityIndex = 0; entityIndex < slot->length; entityIndex++)
+        LinkedList *slot = inner->slots[slotIndex];
+        if (slot == NULL)
+            continue;
+
+        LinkedListIterator *iter = NewLinkedListIterator(slot);
+        for (; !iter->End(iter); iter->Next(iter))
         {
-            MapEntity *entity = slot->Get(slot, entityIndex);
+            MapEntity *entity = iter->Current(iter);
             if ((option & DELETE_VAL) > 0)
             {
                 free(entity->val);
             }
             free(entity);
         }
-        free(slot);
+        DeleteLinkedList(slot);
+        DeleteLinkedListIterator(iter);
     }
-    free(map);
+    free(inner);
 }
 
-void *_innerGet(Map *map, const char *key, Array **slot)
+void *_innerGet(Map *map, const char *key, LinkedList **slot)
 {
-    long h = hash(key);
-    // printf("%s, slot: %ld\n", key, h % SLOTS);
-    MapInner inner = map->inner;
-    *slot = (Array *)inner.slots[h % inner.slotCount];
+    MapInner *inner = INNER(map);
 
-    for (int index = 0; index < (*slot)->length; index++)
+    long h = hash(key);
+    int slotIndex = h % inner->slotCount;
+    if (inner->slots[slotIndex] == NULL)
+        inner->slots[slotIndex] = (void *)NewLinkedList();
+    *slot = inner->slots[slotIndex];
+
+    LinkedListIterator *iter = NewLinkedListIterator(*slot);
+
+    for (; !iter->End(iter); iter->Next(iter))
     {
-        MapEntity *entity = (MapEntity *)(*slot)->Get(*slot, index);
+        MapEntity *entity = iter->Current(iter);
         if (strcmp(key, entity->key) == 0)
-        {
             return entity->val;
-        }
     }
     return NULL;
 }
 
 void *MapGet(Map *map, const char *key)
 {
-    Array *slot;
+    LinkedList *slot;
     return _innerGet(map, key, &slot);
 }
 
 int MapAdd(Map *map, const char *key, void *val)
 {
-    Array *slot;
+    MapInner *inner = INNER(map);
+    LinkedList *slot;
     if (NULL == _innerGet(map, key, &slot))
     {
-        slot->Append(slot, NewMapEntity(key, val));
-        map->inner.entityCount++;
+        slot->Add(slot, NewMapEntity(key, val));
+        inner->entityCount++;
+        map_resize(map);
         return 0;
     }
     return -1;
@@ -117,46 +176,48 @@ int MapAdd(Map *map, const char *key, void *val)
 
 int MapCount(Map *map)
 {
-    return map->inner.entityCount;
+    MapInner *inner = INNER(map);
+    return inner->entityCount;
 }
 
-void next(MapIterator *iter)
+void MapIteratorNext(MapIterator *iter)
 {
+    MapIteratorInner *inner = INNER_ITER(iter);
     iter->current = NULL;
-    Map *map = iter->map;
-    iter->entityIndex++; // move forward.
-    // printf("(%d, %d)\n", iter->slotIndex, iter->entityIndex);
+    inner->index++;
 
-    while (iter->slotIndex < map->inner.slotCount)
-    {
-        Array *slot = (Array *)map->inner.slots[iter->slotIndex];
-        if (iter->entityIndex < slot->length)
-        {
-            // TODO: check entity deleted status if MapDel had been introduced in the future.
-            iter->current = slot->Get(slot, iter->entityIndex);
-            return;
-        }
-
-        // reset entity index and move the slot index forward.
-        iter->entityIndex = 0;
-        iter->slotIndex++;
+    if (inner->index < inner->array->length) {
+        iter->current = inner->array->Get(inner->array, inner->index);
     }
-    return;
 }
 
 MapIterator *NewMapIterator(Map *map)
 {
-    MapIterator *iter = calloc(1, sizeof(MapIterator));
-    iter->slotIndex = 0;
-    iter->entityIndex = -1; // entity may start from the position (0, 0)
-    iter->map = map;
+    MapIteratorInner *inner = calloc(1, sizeof(MapIteratorInner) + sizeof(MapIterator));
+    inner->index = -1;
+    inner->array = NewArray();
+    Array *array = inner->array;
+
+    MapInner *mapInner = INNER(map);
+    for (int i = 0; i < mapInner->slotCount; i++)
+    {
+        LinkedList *slot = mapInner->slots[i];
+        if (slot == NULL)
+            continue;
+        LinkedListIterator *iter = NewLinkedListIterator(slot);
+        for (; !iter->End(iter); iter->Next(iter))
+            array->Append(array, iter->Current(iter));
+        DeleteLinkedListIterator(iter);
+    }
+
+    MapIterator *iter = (MapIterator *)((char *)inner + sizeof(MapIteratorInner));
     iter->current = NULL;
-    iter->Next = next;
-    next(iter);
+    iter->Next = MapIteratorNext;
+    MapIteratorNext(iter);
     return iter;
 }
 
 void DeleteMapIterator(MapIterator *iter)
 {
-    free(iter);
+    free(INNER_ITER(iter));
 }

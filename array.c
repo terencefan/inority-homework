@@ -9,6 +9,7 @@
 const int DEFAULT_ARR_CAPACITY = 32;
 
 int ArrayAppend(Array *arr, void *item);
+void *ArrayPop(Array *arr);
 void *ArrayGet(Array *arr, int index);
 
 Array *NewArray()
@@ -19,6 +20,7 @@ Array *NewArray()
    arr->items = calloc(DEFAULT_ARR_CAPACITY, sizeof(void *));
    arr->Get = ArrayGet;
    arr->Append = ArrayAppend;
+   arr->Pop = ArrayPop;
    return arr;
 }
 
@@ -37,7 +39,7 @@ void DeleteArray(Array *arr)
 
 int ArrayAppend(Array *arr, void *item)
 {
-   if (arr->length < arr->capacity)
+   if (arr->length >= arr->capacity)
    {
       int newCapacity = arr->capacity << 1;
       void **newItems = calloc(newCapacity, sizeof(void *));
@@ -61,4 +63,14 @@ void *ArrayGet(Array *arr, int index)
       return NULL;
    }
    return arr->items[index];
+}
+
+void *ArrayPop(Array *arr)
+{
+   if (arr->length == 0)
+   {
+      return NULL;
+   }
+   arr->length--;
+   return arr->items[arr->length];
 }

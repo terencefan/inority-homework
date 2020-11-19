@@ -7,6 +7,7 @@ struct _Array
     void **items;
 
     int (*Append)(Array *arr, void *item);
+    void* (*Pop)(Array *arr);
     void *(*Get)(Array *arr, int index);
 };
 

@@ -23,7 +23,7 @@ int handle_line_normal(const char *line,
                        Heap *bigram_20,
                        Heap *trigram_12);
 int handle_line_script(const char *line, int pos);
-void insert_word(const char *string, Map *counter_map, Heap *minheap, int type);
+void insert_word(const char *string, Map *counter_map, int type);
 void print_words(Heap *word_50);
 void print_bigrams(Heap *bigram_20);
 void print_trigrams(Heap *trigram_12);
@@ -294,7 +294,7 @@ int handle_line_normal(const char *line,
                     {
                         tmp_string[str_iter] = tolower(tmp_string[str_iter]); // set to lower case
                     }
-                    insert_word(tmp_string, monogram, word_50, TYPE_MONOGRAM); // insert into map & heap if necessary
+                    insert_word(tmp_string, monogram, TYPE_MONOGRAM); // insert into map & heap if necessary
                     // check if it is a stop word in AP89
                     int result = 0;
                     if (strlen(tmp_string) == 2)
@@ -320,7 +320,7 @@ int handle_line_normal(const char *line,
                             strcpy(tmp_bigram, word_cache_2);
                             strcpy(tmp_bigram + word_2_len, " ");
                             strcpy(tmp_bigram + word_2_len + 1, tmp_string);
-                            insert_word(tmp_bigram, bigram, bigram_20, TYPE_BIGRAM);
+                            insert_word(tmp_bigram, bigram, TYPE_BIGRAM);
                         }
                         if (word_1_len > 0 && word_2_len > 0)
                         { // build trigram
@@ -328,7 +328,7 @@ int handle_line_normal(const char *line,
                             strcpy(tmp_trigram, word_cache_1);
                             strcpy(tmp_trigram + word_1_len, " ");
                             strcpy(tmp_trigram + word_1_len + 1, tmp_bigram);
-                            insert_word(tmp_trigram, trigram, trigram_12, TYPE_TRIGRAM);
+                            insert_word(tmp_trigram, trigram, TYPE_TRIGRAM);
                         }
                         memset(word_cache_1, '\0', 50); // reset the word cache
                         strcpy(word_cache_1, word_cache_2);
@@ -352,7 +352,7 @@ int handle_line_normal(const char *line,
     return line_iter;
 }
 
-void insert_word(const char *string, Map *counter_map, Heap *minheap, int type)
+void insert_word(const char *string, Map *counter_map, int type)
 {
     int *cnt = counter_map->Get(counter_map, string);
     switch (type)
