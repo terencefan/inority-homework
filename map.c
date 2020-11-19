@@ -47,7 +47,6 @@ void map_resize(Map *map)
     MapInner *inner = INNER(map);
     if (inner->entityCount < inner->slotCount)
         return;
-    printf("resize\n");
 
     int newSlotCount = inner->slotCount << 1;
     LinkedList **slots = inner->slots;
