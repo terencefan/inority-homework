@@ -359,6 +359,7 @@ int regex_match(const char *filename, const char *regex, char ***matches, int tr
    int count = 0;
    while ((read = getline(&line, &len, fp)) != -1)
    {
+      line[strlen(line) - 1] = '\0';
       for (int left = 0; line[left] != '\0'; left++)
       {
          int right = regex_line_match_backtrace(line, regexArr, left, 0);
@@ -399,19 +400,16 @@ int main(int argc, char *argv[])
    char regex[512];
    char **matches;
 
-   // if (argc < 3) {
-   //    ERROR_LOG("Invalid arguments");
-   // }
-   // char* regex_file = argv[1];
-   // char* text_file = argv[2];
+   if (argc < 3)
+      ERROR_LOG("Invalid arguments");
+   char *regex_file = argv[1];
+   char *text_file = argv[2];
 
-   char *regex_file = "regex.txt";
-   char *text_file = "hw1-input01.txt";
    read_regex(regex_file, regex);
    int count = regex_match(text_file, regex, &matches, 1);
    for (int i = 0; i < count; i++)
    {
-      printf("%s", matches[i]);
+      printf("%s\n", matches[i]);
    }
    return 0;
 }

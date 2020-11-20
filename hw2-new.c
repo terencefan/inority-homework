@@ -383,7 +383,6 @@ void parse_file(Counter *counter, const char *filename)
     for (i = 0; i < words->length; i++)
     {
         char *word = words->Get(words, i);
-        printf("%s\n", word);
         counter->feed(counter, word);
     }
 
