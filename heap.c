@@ -3,22 +3,16 @@
 
 #include "heap.h"
 
-#define PARENT(x) (x >> 1)
+#define PARENT(x) (x >> 1)                  // define the parent, left child, right child node
 #define LCHILD(x) (((x + 1) << 1) - 1)
 #define RCHILD(x) ((x + 1) << 1)
 
-void pheap(Heap *heap)
-{
-  printf("heap: ");
 
-  for (int i = 0; i < heap->size; i++)
-  {
-    HeapItem *item = heap->items[i];
-    printf("%d ", item->weight);
-  }
-
-  printf("\n");
-}
+/**
+ * Swap two heap items
+ * Heap *heap: heap
+ * int i,j: 2 indexes for swapping
+ * */
 
 void swap(Heap *heap, int i, int j)
 {
@@ -38,6 +32,11 @@ int InnerCompare(Heap *heap, HeapItem *item1, HeapItem *item2)
   return heap->Compare(w1, w2, data1, data2);
 }
 
+/**
+ * heapify, bottomup
+ * Heap *heap: heap pointer
+ * int i: index of the item
+ * */
 void bottomup(Heap *heap, int i)
 {
   if (i == 0)
@@ -51,8 +50,14 @@ void bottomup(Heap *heap, int i)
     swap(heap, parent, i);
     bottomup(heap, parent);
   }
+
 }
 
+/**
+ * heapify, topdown
+ * Heap *heap: heap pointer
+ * int i: i of the item
+ * */
 void topdown(Heap *heap, int i)
 {
   int size = heap->size;
@@ -92,13 +97,24 @@ void topdown(Heap *heap, int i)
   }
 }
 
+/**
+ * get heap size
+ * Heap *heap: heap pointer
+ * */
 int HeapSize(Heap *heap)
 {
   return heap->size;
 }
 
+/**
+ * get the item on top of the heap
+ * Heap *heap: heap pointer
+ * int *weight: stores the weight of the item at the top
+ * returns: pointer of the item on top of the heap
+ * */
 void *HeapTop(Heap *heap, int *weight)
 {
+
   if (heap->size == 0)
   {
     return NULL;
@@ -109,6 +125,12 @@ void *HeapTop(Heap *heap, int *weight)
   return item->data;
 }
 
+/**
+ * push an item into the heap
+ * Heap *heap: heap pointer
+ * int *eight: the weight of the item
+ * void *data: pointer of the item that needs to be pushed
+ * */
 void HeapPush(Heap *heap, int weight, void *data)
 {
   if (heap->size < heap->capacity)
@@ -131,8 +153,30 @@ void HeapPush(Heap *heap, int weight, void *data)
     heap->items[0] = item;
     topdown(heap, 0);
   }
+    HeapItem *item = calloc(1, sizeof(HeapItem));   // alloc memory for new heap item
+    item->weight = weight;  // set properties
+    item->data = data;
+
+    if (heap->size < heap->capacity)    // if size doesn't reach the capacity
+    {
+        heap->items[heap->size] = item; // push item into the heap and heapify
+        heap->size++;
+        bottomup(heap, heap->size - 1);
+    }
+    else if (weight > heap->items[0]->weight)   // if size reaches the capacity but current item has a higher weight
+    {                                           // than the top item in heap
+        heap->items[0] = item;                  // update the item
+        topdown(heap, 0);                // heapify
+    }
 }
 
+
+/**
+ * push an item into the heap
+ * Heap *heap: heap pointer
+ * int *eight: the weight of the item
+ * void *data: pointer of the item that needs to be pushed
+ * */
 void *HeapPop(Heap *heap, int *weight)
 {
   if (heap->size == 0)
@@ -177,6 +221,11 @@ int CompareForMaxHeap(int w1, int w2, void *data1, void *data2)
   return (w1 - w2) > 0 ? -1 : (w1 - w2) < 0 ? 1 : 0;
 }
 
+/**
+ * create a new heap
+ * int capacity: maximum number of elements of the heap
+ * returns: pointer of the new heap
+ * */
 Heap *NewMinHeap(int capacity)
 {
   Heap *heap = NewHeap(capacity);
@@ -191,6 +240,10 @@ Heap *NewMaxHeap(int capacity)
   return heap;
 }
 
+/**
+ * free the heap & heap items
+ * Heap *heap: address of the heap
+ * */
 void DeleteHeap(Heap *heap)
 {
   free(heap->items);
