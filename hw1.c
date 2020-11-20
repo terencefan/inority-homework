@@ -346,16 +346,6 @@ void read_regex(const char *filename, char *regex)
    fscanf(fp, "%s", regex);
 }
 
-/**
- * Free array struct itself and return the pointer to its items.
- */
-void **RemoveArray(Array *arr)
-{
-   void **items = arr->items;
-   free(arr);
-   return items;
-}
-
 int regex_match(const char *filename, const char *regex, char ***matches, int trim_to_match)
 {
    Array *regexArr = build_regex_array(regex);

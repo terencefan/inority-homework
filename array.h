@@ -1,17 +1,16 @@
 #ifndef ARRAY
 #define ARRAY
 
-
 typedef struct _Array Array;
 
-struct _Array                       // define the struct of array
+struct _Array // define the struct of array
 {
     int capacity;
     int length;
-    void **items;                   // a dynamic array that stores the pointers of items
+    void **items; // a dynamic array that stores the pointers of items
 
-    int (*Append)(Array *arr, void *item);  // define built-in functions
-    void* (*Pop)(Array *arr);
+    int (*Append)(Array *arr, void *item); // define built-in functions
+    void *(*Pop)(Array *arr);
     void (*Swap)(Array *arr, int i, int j);
     Array *(*Concat)(Array *arr, Array *other);
     void *(*Get)(Array *arr, int index);
@@ -57,4 +56,6 @@ void *ArrayGet(Array *arr, int index);
 * Array *arr: the array pointer
 * returns: pointer of the item list
 */
-void** RemoveArray(Array *arr);
+void **RemoveArray(Array *arr);
+
+#endif

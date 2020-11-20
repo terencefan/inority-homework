@@ -7,14 +7,14 @@ typedef struct _MapSlot MapSlot;
 typedef struct _MapEntity MapEntity;
 typedef struct _MapIterator MapIterator;
 
-struct _Map     // define the map struct
+struct _Map // define the map struct
 {
-    void *(*Get)(Map *map, const char *key);                    // define built-in functions
+    void *(*Get)(Map *map, const char *key); // define built-in functions
     int (*Add)(Map *map, const char *key, void *val);
     int (*Count)(Map *map);
 };
 
-struct _MapEntity   // define the struct for map item
+struct _MapEntity // define the struct for map item
 {
     const char *key;
     void *val;
@@ -46,6 +46,8 @@ void DeleteMap(Map *map, int option);
  * returns address of the map iterator
  */
 MapIterator *NewMapIterator(Map *map);
+
+Array *GetMapIteratorArray(MapIterator *iter);
 
 /**
  * Delete map iterator
