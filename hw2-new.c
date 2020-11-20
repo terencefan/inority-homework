@@ -378,6 +378,10 @@ void parse_file(Counter *counter, const char *filename)
         }
     }
 
+    if (line != NULL)
+        free(line);
+    fclose(fp);
+
     words->Concat(words, tempWords);
 
     for (i = 0; i < words->length; i++)
@@ -418,5 +422,9 @@ int main(int argc, char *argv[])
     printf("\nTop 12 interesting trigrams:\n");
     printTopK(counter->trigramMap, 12);
 
+    DeleteArray(word);
+    DeleteArray(openingScript);
+    DeleteArray(closingScript);
+    DeleteArray(htmlChars);
     DeleteCounter(counter);
 }

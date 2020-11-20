@@ -18,11 +18,11 @@ void *ArrayGet(Array *arr, int index);
  */
 Array *NewArray()
 {
-   Array *arr = calloc(1, sizeof(Array));   // alloc memory
-   arr->capacity = DEFAULT_ARR_CAPACITY;           // set property to default
+   Array *arr = calloc(1, sizeof(Array)); // alloc memory
+   arr->capacity = DEFAULT_ARR_CAPACITY;  // set property to default
    arr->length = 0;
    arr->items = calloc(DEFAULT_ARR_CAPACITY, sizeof(void *));
-   arr->Get = ArrayGet;                         // set built-in methods
+   arr->Get = ArrayGet; // set built-in methods
    arr->Append = ArrayAppend;
    arr->Concat = ArrayConcat;
    arr->Swap = ArraySwap;
@@ -49,13 +49,12 @@ Array *ArrayConcat(Array *arr1, Array *arr2)
 /**
  * Free all memories recursively, including its items.
  * Array *arr: the array pointer that needs to be freed
+ * int option: 1 if delete array values at the same time, 0 otherwise
  */
 void DeleteArray(Array *arr)
 {
    for (int i = 0; i < arr->length; i++)
-   {
       free(arr->items[i]);
-   }
    free(arr->items);
    free(arr);
 }
@@ -68,20 +67,20 @@ void DeleteArray(Array *arr)
  */
 int ArrayAppend(Array *arr, void *item)
 {
-   if (arr->length >= arr->capacity)            // if current lenght exceeds capacity
+   if (arr->length >= arr->capacity) // if current lenght exceeds capacity
    {
-      int newCapacity = arr->capacity << 1;     // resize the array and double capacity
+      int newCapacity = arr->capacity << 1; // resize the array and double capacity
       void **newItems = calloc(newCapacity, sizeof(void *));
       for (int i = 0; i < arr->capacity; i++)
       {
-         newItems[i] = arr->items[i];           // copy everything from old array into the new one
+         newItems[i] = arr->items[i]; // copy everything from old array into the new one
       }
-      free(arr->items);                         // free the old one
+      free(arr->items); // free the old one
       arr->capacity = newCapacity;
       arr->items = newItems;
    }
-   arr->items[arr->length] = item;              // append the item
-   arr->length += 1;                            // add 1 to the length
+   arr->items[arr->length] = item; // append the item
+   arr->length += 1;               // add 1 to the length
    return 0;
 }
 
@@ -93,11 +92,11 @@ int ArrayAppend(Array *arr, void *item)
 */
 void *ArrayGet(Array *arr, int index)
 {
-   if (index >= arr->length)                // check index validity
+   if (index >= arr->length) // check index validity
    {
       return NULL;
    }
-   return arr->items[index];                // get item
+   return arr->items[index]; // get item
 }
 
 /**
@@ -120,8 +119,9 @@ void *ArrayPop(Array *arr)
 * Array *arr: the array pointer
 * returns: pointer of the item list
 */
-void** RemoveArray(Array *arr) {
-    void **r = arr->items;
-    free(arr);
-    return r;
+void **RemoveArray(Array *arr)
+{
+   void **r = arr->items;
+   free(arr);
+   return r;
 }

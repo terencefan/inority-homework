@@ -105,6 +105,12 @@ MapEntity *NewMapEntity(const char *key, void *val)
     return entity;
 }
 
+void DeleteMapEntity(MapEntity *entity)
+{
+    free(entity->key);
+    free(entity);
+}
+
 /**
  * New a map struct
  * returns the address of the map
@@ -145,11 +151,12 @@ void DeleteMap(Map *map, int option)
             {
                 free(entity->val);
             }
-            free(entity);
+            DeleteMapEntity(entity);
         }
         DeleteLinkedList(slot); // free everything
         DeleteLinkedListIterator(iter);
     }
+    free(inner->slots);
     free(inner);
 }
 
@@ -176,8 +183,13 @@ void *_innerGet(Map *map, const char *key, LinkedList **slot)
     {
         MapEntity *entity = iter->Current(iter);
         if (strcmp(key, entity->key) == 0)
+        {
+            DeleteLinkedListIterator(iter);
             return entity->val;
+        }
     }
+
+    DeleteLinkedListIterator(iter);
     return NULL;
 }
 
@@ -285,6 +297,7 @@ Array *GetMapIteratorArray(MapIterator *iter)
 void DeleteMapIterator(MapIterator *iter)
 {
     MapIteratorInner *inner = INNER_ITER(iter);
+    free(inner->array->items);
     free(inner->array);
     free(inner);
 }

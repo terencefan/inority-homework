@@ -3,22 +3,22 @@
 
 #include "linked_list.h"
 
-#define INNER(list) (LinkedListInner *)((char*)list - sizeof(LinkedListInner))
-#define INNER_ITER(iter) (LinkedListIteratorInner *)((char*)iter - sizeof(LinkedListIteratorInner))
+#define INNER(list) (LinkedListInner *)((char *)list - sizeof(LinkedListInner))
+#define INNER_ITER(iter) (LinkedListIteratorInner *)((char *)iter - sizeof(LinkedListIteratorInner))
 
 typedef struct _LinkedListNode LinkedListNode;
 
-struct _LinkedListNode      // define the struct for node
+struct _LinkedListNode // define the struct for node
 {
     void *data;
     LinkedListNode *next;
 };
 
-typedef struct _LinkedListInner     // inner struct
+typedef struct _LinkedListInner // inner struct
 {
-    LinkedListNode dummyHead;       // always points to the head
-    LinkedListNode *tail;           // points to the last node
-    int count;                      // linkedlist size
+    LinkedListNode dummyHead; // always points to the head
+    LinkedListNode *tail;     // points to the last node
+    int count;                // linkedlist size
 } LinkedListInner;
 
 typedef struct _LinkedListIteratorInner // iterator for the linked list
@@ -58,7 +58,7 @@ void *last(LinkedList *list)
 void add(LinkedList *list, void *data)
 {
     LinkedListInner *inner = INNER(list);
-    LinkedListNode *node = calloc(1, sizeof(LinkedListNode));   // init a node
+    LinkedListNode *node = calloc(1, sizeof(LinkedListNode)); // init a node
     node->data = data;
     inner->tail->next = node;
     inner->tail = node;
@@ -84,7 +84,7 @@ LinkedList *NewLinkedList()
     // init the inner struct first
     LinkedListInner *inner = calloc(1, sizeof(LinkedListInner) + sizeof(LinkedList));
     inner->count = 0;
-    inner->dummyHead.data = NULL;   // set up head and tail
+    inner->dummyHead.data = NULL; // set up head and tail
     inner->dummyHead.next = NULL;
     inner->tail = &inner->dummyHead;
 
@@ -161,13 +161,13 @@ void DeleteLinkedList(LinkedList *list)
     LinkedListIteratorInner *iterInner = INNER_ITER(iter);
     LinkedListInner *inner = INNER(list);
 
-    while (!iter->End(iter))    // start iterating
+    while (!iter->End(iter)) // start iterating
     {
-        LinkedListNode *node = iterInner->current;  // free the node
+        LinkedListNode *node = iterInner->current; // free the node
         iter->Next(iter);
         free(node);
     }
-    free(inner);    // free everything
+    free(inner); // free everything
 
     DeleteLinkedListIterator(iter);
 }

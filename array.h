@@ -1,6 +1,8 @@
 #ifndef ARRAY
 #define ARRAY
 
+#define ARRAY_DELETE_VAL 1
+
 typedef struct _Array Array;
 
 struct _Array // define the struct of array
@@ -25,6 +27,7 @@ Array *NewArray();
 /**
  * Free all memories recursively, including its items.
  * Array *arr: the array pointer that needs to be freed
+ * int option: 1 if delete array values at the same time, 0 otherwise
  */
 void DeleteArray(Array *arr);
 

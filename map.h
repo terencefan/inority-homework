@@ -16,7 +16,7 @@ struct _Map // define the map struct
 
 struct _MapEntity // define the struct for map item
 {
-    const char *key;
+    char *key;
     void *val;
 };
 

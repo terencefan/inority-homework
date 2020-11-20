@@ -1,15 +1,15 @@
 typedef struct _LinkedList LinkedList;
 typedef struct _LinkedListIterator LinkedListIterator;
 
-struct _LinkedList  // define the struct of linked list
+struct _LinkedList // define the struct of linked list
 {
-    void *(*First)(LinkedList *);   // fist node
-    void *(*Last)(LinkedList *);    // last node
-    void (*Add)(LinkedList *, void *);  // built-in functions
+    void *(*First)(LinkedList *);      // fist node
+    void *(*Last)(LinkedList *);       // last node
+    void (*Add)(LinkedList *, void *); // built-in functions
     int (*Count)(LinkedList *);
 };
 
-struct _LinkedListIterator  // define struct for linked list iterator
+struct _LinkedListIterator // define struct for linked list iterator
 {
     int (*End)(LinkedListIterator *);
     void *(*Current)(LinkedListIterator *);
