@@ -5,8 +5,8 @@
 #include <string.h>
 
 #include "hw1.h"
+#include "array.h"
 #include "map.h"
-#include "heap.h"
 
 #define STATE_NORMAL 1
 #define STATE_SCRIPT 2
