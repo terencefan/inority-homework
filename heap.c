@@ -29,6 +29,15 @@ void swap(Heap *heap, int i, int j)
   items[i] = temp;
 }
 
+int InnerCompare(Heap *heap, HeapItem *item1, HeapItem *item2)
+{
+  int w1 = item1->weight;
+  int w2 = item2->weight;
+  void *data1 = item1->data;
+  void *data2 = item2->data;
+  return heap->Compare(w1, w2, data1, data2);
+}
+
 void bottomup(Heap *heap, int i)
 {
   if (i == 0)
@@ -37,7 +46,7 @@ void bottomup(Heap *heap, int i)
   HeapItem **items = heap->items;
   int parent = PARENT(i);
 
-  if (items[parent]->weight > items[i]->weight)
+  if (InnerCompare(heap, items[parent], items[i]) > 0)
   {
     swap(heap, parent, i);
     bottomup(heap, parent);
@@ -58,21 +67,27 @@ void topdown(Heap *heap, int i)
 
   if (rchild < size)
   {
-    if (items[rchild]->weight <= items[lchild]->weight && items[rchild]->weight < items[i]->weight)
+    if (InnerCompare(heap, items[rchild], items[lchild]) <= 0)
     {
-      swap(heap, rchild, i);
-      topdown(heap, rchild);
-      return;
+      if (InnerCompare(heap, items[rchild], items[i]) < 0)
+      {
+        swap(heap, rchild, i);
+        topdown(heap, rchild);
+        return;
+      }
     }
   }
 
   if (lchild < size)
   {
-    if ((rchild >= size || items[lchild]->weight <= items[rchild]->weight) && items[lchild]->weight < items[i]->weight)
+    if (rchild >= size || InnerCompare(heap, items[lchild], items[rchild]) <= 0)
     {
-      swap(heap, lchild, i);
-      topdown(heap, lchild);
-      return;
+      if (InnerCompare(heap, items[lchild], items[i]) < 0)
+      {
+        swap(heap, lchild, i);
+        topdown(heap, lchild);
+        return;
+      }
     }
   }
 }
