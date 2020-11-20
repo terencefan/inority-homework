@@ -13,6 +13,8 @@ struct _Heap
     int capacity;
     HeapItem **items;
 
+    int (*Compare)(int w1, int w2, void *data1, void *data2);
+
     void *(*Top)(Heap *heap, int *weight);
     void (*Push)(Heap *heap, int weight, void *data);
     void *(*Pop)(Heap *heap, int *weight);
@@ -20,5 +22,7 @@ struct _Heap
 };
 
 Heap *NewMinHeap(int capacity);
+
+Heap *NewMaxHeap(int capacity);
 
 void DeleteHeap(Heap *heap);
