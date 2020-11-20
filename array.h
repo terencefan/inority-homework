@@ -1,4 +1,6 @@
-#define DEFAULT_ARR_CAPACITY 32
+#ifndef ARRAY
+#define ARRAY
+
 
 typedef struct _Array Array;
 
@@ -10,6 +12,8 @@ struct _Array                       // define the struct of array
 
     int (*Append)(Array *arr, void *item);  // define built-in functions
     void* (*Pop)(Array *arr);
+    void (*Swap)(Array *arr, int i, int j);
+    Array *(*Concat)(Array *arr, Array *other);
     void *(*Get)(Array *arr, int index);
 };
 

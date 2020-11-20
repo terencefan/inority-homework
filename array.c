@@ -4,6 +4,14 @@
 
 #include "array.h"
 
+const int DEFAULT_ARR_CAPACITY = 32;
+
+int ArrayAppend(Array *arr, void *item);
+Array *ArrayConcat(Array *arr, Array *other);
+void *ArrayPop(Array *arr);
+void ArraySwap(Array *arr, int i, int j);
+void *ArrayGet(Array *arr, int index);
+
 /**
  * Initialize a new array
  * returns pointer of the new array
@@ -16,8 +24,26 @@ Array *NewArray()
    arr->items = calloc(DEFAULT_ARR_CAPACITY, sizeof(void *));
    arr->Get = ArrayGet;                         // set built-in methods
    arr->Append = ArrayAppend;
+   arr->Concat = ArrayConcat;
+   arr->Swap = ArraySwap;
    arr->Pop = ArrayPop;
    return arr;
+}
+
+void ArraySwap(Array *arr, int i, int j)
+{
+   void *temp = arr->items[i];
+   arr->items[i] = arr->items[j];
+   arr->items[j] = temp;
+}
+
+Array *ArrayConcat(Array *arr1, Array *arr2)
+{
+   for (int arrIndex = 0; arrIndex < arr2->length; arrIndex++)
+      ArrayAppend(arr1, ArrayGet(arr2, arrIndex));
+   free(arr2->items);
+   free(arr2);
+   return arr1;
 }
 
 /**

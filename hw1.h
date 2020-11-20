@@ -1,7 +1,15 @@
 #include "array.h"
 
-#define ERROR_LOG(fmt, ...) do { error_log(fmt, ##__VA_ARGS__); } while(0);
-#define DEBUG_LOG(fmt, ...) do { debug_log(fmt, ##__VA_ARGS__); } while(0);
+#define ERROR_LOG(fmt, ...)            \
+    do                                 \
+    {                                  \
+        error_log(fmt, ##__VA_ARGS__); \
+    } while (0);
+#define DEBUG_LOG(fmt, ...)            \
+    do                                 \
+    {                                  \
+        debug_log(fmt, ##__VA_ARGS__); \
+    } while (0);
 
 /**
  * log to stderr.

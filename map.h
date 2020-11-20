@@ -1,5 +1,7 @@
 #define DELETE_VAL 0x1
 
+#include "array.h"
+
 typedef struct _Map Map;
 typedef struct _MapSlot MapSlot;
 typedef struct _MapEntity MapEntity;
@@ -22,6 +24,7 @@ struct _MapIterator // define the struct fot map iterator
 {
     MapEntity *current;
     void (*Next)(MapIterator *iter);
+    void (*Reset)(MapIterator *iter);
 };
 
 /**

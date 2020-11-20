@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "map.h"
-#include "array.h"
 #include "linked_list.h"
 
 #define MOD 1000000007
@@ -249,7 +248,6 @@ MapIterator *NewMapIterator(Map *map)
 {
     // alloc and init the iterator
     MapIteratorInner *inner = calloc(1, sizeof(MapIteratorInner) + sizeof(MapIterator));
-    inner->index = -1;
     inner->array = NewArray();
     Array *array = inner->array;
 
@@ -266,10 +264,17 @@ MapIterator *NewMapIterator(Map *map)
     }
     // alloc memory and init the iterator
     MapIterator *iter = (MapIterator *)((char *)inner + sizeof(MapIteratorInner));
-    iter->current = NULL;
     iter->Next = MapIteratorNext;
-    MapIteratorNext(iter);
+    iter->Reset = MapIteratorReset;
+
+    MapIteratorReset(iter);
     return iter;
+}
+
+Array *GetMapIteratorArray(MapIterator *iter)
+{
+    MapIteratorInner *inner = INNER_ITER(iter);
+    return inner->array;
 }
 
 /**
@@ -278,5 +283,7 @@ MapIterator *NewMapIterator(Map *map)
  */
 void DeleteMapIterator(MapIterator *iter)
 {
-    free(INNER_ITER(iter));
+    MapIteratorInner *inner = INNER_ITER(iter);
+    free(inner->array);
+    free(inner);
 }
