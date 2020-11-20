@@ -317,7 +317,8 @@ void parse_file(Counter *counter, const char *filename)
                         // switch to script state.
                         state = STATE_SCRIPT;
                     }
-                    state = STATE_TAG;
+                    else
+                        state = STATE_TAG;
                 }
                 else if (c == '&')
                 {
@@ -364,6 +365,7 @@ void parse_file(Counter *counter, const char *filename)
                 else if (c == '<')
                 {
                     words->Concat(words, tempWords);
+                    tempWords = NewArray();
                 }
                 else if (c == '>')
                 {
@@ -381,6 +383,7 @@ void parse_file(Counter *counter, const char *filename)
     for (i = 0; i < words->length; i++)
     {
         char *word = words->Get(words, i);
+        printf("%s\n", word);
         counter->feed(counter, word);
     }
 

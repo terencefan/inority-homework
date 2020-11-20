@@ -290,8 +290,6 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
    if (regexIndex == regexArr->length)
       return strIndex;
 
-   DEBUG_LOG("str index: %d, regex index: %d", strIndex, regexIndex);
-
    RegexItem *item = (RegexItem *)regexArr->Get(regexArr, regexIndex);
    if (item == NULL)
       ERROR_LOG("array get out of bounds");
@@ -319,8 +317,6 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
    default:
       ERROR_LOG("unknown repeat type: %d", item->wildcardType);
    }
-
-   DEBUG_LOG("left: %d,: right %d", left, right);
 
    for (; right >= left; right--)
    {

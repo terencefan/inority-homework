@@ -9,9 +9,12 @@
 
     $displaystyle = 'inline';
     $ngram = 1;
-    if ( isset( $_GET['ngram'] ) ) $ngram = $_GET['ngram'];
 
-    $content = file_get_contents("book-dorian-gray-german.txt");     // dangerous......!
+    $files = ["w1.html","w2.html","w3.html","w4.html","w5.html","w6.html", ];
+
+    foreach ($files as $file) {
+
+    $content = file_get_contents($file);     // dangerous......!
 
     // remove special characters (e.g. &nbsp;)
     $content = preg_replace( '/&nbsp;/', '', $content );
@@ -37,4 +40,5 @@
       print($word);
       print("\n");
       }
+    }
     }
