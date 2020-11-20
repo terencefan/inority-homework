@@ -12,6 +12,8 @@
 #define STATE_SCRIPT 2
 #define STATE_TAG 3
 
+Array *word, *openingScript, *closingScript, *htmlChars;
+
 typedef struct _Counter Counter;
 
 int is_stopword(const char *word);
@@ -77,6 +79,7 @@ void incr_trigram(Counter *this, const char *w1, const char *w2, const char *w3)
 void feed(Counter *this, const char *word)
 {
     incr_monogram(this, word);
+
     if (is_stopword(word))
     {
         this->stop(this);
@@ -193,6 +196,10 @@ int search_stop_word_5(const char *string)
     return 0;
 }
 
+/**
+ * Check if a string is stop words from AP89 list.
+ * return 1: yes, 0: no
+ */
 int is_stopword(const char *word)
 {
     switch (strlen(word))
@@ -209,90 +216,74 @@ int is_stopword(const char *word)
     return 0;
 }
 
-int is_html_chars(const char *line, int start, int end)
+int is_html_chars(const char *str, int len)
 {
-    switch (end - start)
+    switch (len)
     {
     case 6:
-        return strncmp(line + start, "&nbsp;", 6) == 0 || strncmp(line + start, "&quot;", 6) == 0;
+        return strncmp(str, "&nbsp;", len) == 0 || strncmp(str, "&quot;", len) == 0;
     case 5:
-        return strncmp(line + start, "&amp;", 5) == 0;
+        return strncmp(str, "&amp;", len) == 0;
     case 4:
-        return strncmp(line + start, "&lt;", 4) == 0 || strncmp(line + start, "&gt;", 4) == 0;
+        return strncmp(str, "&lt;", len) == 0 || strncmp(str, "&gt;", len) == 0;
     }
     return 0;
 }
 
-int CustomCompare(int w1, int w2, void *data1, void *data2)
+int Compare(MapEntity *e1, MapEntity *e2)
 {
+    if (e1 == NULL)
+        return e2 == NULL ? 0 : 1;
+    if (e2 == NULL)
+        return -1;
+
+    int w1 = *(int *)(e1->val);
+    int w2 = *(int *)(e2->val);
     if (w1 == w2)
-        return -strcmp(data1, data2);
-    return (w1 - w2) < 0 ? -1 : (w1 - w2) > 0 ? 1 : 0;
+        return strcmp(e1->key, e2->key);
+    return (w1 - w2) < 0 ? 1 : (w1 - w2) > 0 ? -1 : 0;
 }
 
 void printTopK(Map *map, int k)
 {
-    Heap *heap = NewMinHeap(k);
-    heap->Compare = CustomCompare;
-
     MapIterator *iter = NewMapIterator(map);
-    int weight;
-    for (; iter->current != NULL; iter->Next(iter))
+    k = k < map->Count(map) ? k : map->Count(map);
+    Array *array = GetMapIteratorArray(iter);
+
+    int maxIndex;
+    for (int i = 0; i < k; i++)
     {
-        MapEntity *current = iter->current;
-        int count = *(int *)current->val;
-        heap->Push(heap, count, (void *)current->key);
+        maxIndex = i;
+        for (int j = i; j < array->length; j++)
+        {
+            if (Compare(array->Get(array, maxIndex), array->Get(array, j)) > 0)
+            {
+                maxIndex = j;
+            }
+        }
+        array->Swap(array, i, maxIndex);
+        MapEntity *entity = array->Get(array, i);
+        printf("%d, %s\n", *(int *)(entity->val), entity->key);
     }
 
-    int weights[50];
-    char *words[50];
-    int index = 0;
-
-    char *key;
-    while (NULL != (key = heap->Pop(heap, &weight)))
-    {
-        weights[index] = weight;
-        words[index] = key;
-        index++;
-    }
-
-    for (index--; index >= 0; index--)
-        printf("%d %s\n", weights[index], words[index]);
-    DeleteHeap(heap);
+    DeleteMapIterator(iter);
 }
 
-Array *word, *openingScript, *closingScript, *htmlTag, *htmlChars;
-
-void find_last_gt(const char *filename, int *x, int *y)
+char *NewWord(const char *line, int l, int r)
 {
-    FILE *fp;
-    char *line = NULL;
-    size_t len = 0;
-    size_t read;
-
-    fp = fopen(filename, "r");
-    if (fp == NULL)
-        ERROR_LOG("failed to open file %s", filename);
-
-    int lineno = -1;
-    while ((read = getline(&line, &len, fp)) != -1)
-    {
-        lineno++;
-        for (int i = 0; line[i] != '\0'; i++)
-            if (line[i] == '>')
-            {
-                *x = lineno;
-                *y = i;
-            }
-    }
+    char *word = calloc(1, r - l + 1);
+    for (int i = 0; i < r - l; i++)
+        word[i] = tolower(line[l + i]);
+    word[r - l] = '\0';
+    return word;
 }
 
 void parse_file(Counter *counter, const char *filename)
 {
     counter->documentCount++;
 
-    int lastGtX, lastGtY;
-    find_last_gt(filename, &lastGtX, &lastGtY);
+    Array *words = NewArray();
+    Array *tempWords = NewArray(); // storage words temporarily while skipping html tags
 
     FILE *fp;
     char *line = NULL;
@@ -304,61 +295,49 @@ void parse_file(Counter *counter, const char *filename)
         ERROR_LOG("failed to open file %s", filename);
 
     int state = STATE_NORMAL, i, r;
-    int lineno = -1;
 
     while ((read = getline(&line, &len, fp)) != -1)
     {
-        lineno++;
         for (i = 0; line[i] != '\0'; i++)
         {
             char c = line[i];
+            if (isblank(c)) // simply skip the blank character
+                continue;
+
             switch (state)
             {
             case STATE_NORMAL:
-                if (isblank(c))
+                if (c == '<')
                 {
-                    // just skip
-                }
-                else if (c == '<')
-                {
-                    // switch to script state.
                     r = regex_line_match(line, openingScript, i);
                     if (r > 0)
                     {
                         DEBUG_LOG("%sfound <script> at: (%d, %d)\n", line, i, r);
                         i = r - 1;
+                        // switch to script state.
                         state = STATE_SCRIPT;
-                        break;
                     }
-
-                    if (lineno < lastGtX || (lineno == lastGtX && i < lastGtY))
-                        state = STATE_TAG;
+                    state = STATE_TAG;
                 }
                 else if (c == '&')
                 {
                     r = regex_line_match(line, htmlChars, i);
-                    if (r > 0 && is_html_chars(line, i, r))
+                    if (r > 0 && is_html_chars(line + i, r - i))
                     {
                         i = r - 1;
                         break;
                     }
                 }
-                else
+                else if (isalpha(c))
                 {
                     r = regex_line_match(line, word, i);
-                    if (r < 0 || r - i < 2)
-                        break;
-                    DEBUG_LOG("%sfound word at: (%d, %d)\n", line, i, r);
-
-                    char buf[256];
-                    int offset = 0;
-                    for (; i < r; i++, offset++)
-                        buf[offset] = tolower(line[i]);
-                    buf[offset] = '\0';
-                    i--;
-
-                    counter->feed(counter, buf);
+                    if (r > i + 1)
+                    {
+                        words->Append(words, NewWord(line, i, r));
+                        i = r - 1;
+                    }
                 }
+                break;
             case STATE_SCRIPT:
                 if (c == '<')
                 {
@@ -373,20 +352,47 @@ void parse_file(Counter *counter, const char *filename)
                 }
                 break;
             case STATE_TAG:
-                if (c == '>')
+                if (isalpha(c))
+                {
+                    r = regex_line_match(line, word, i);
+                    if (r > i + 1)
+                    {
+                        tempWords->Append(tempWords, NewWord(line, i, r));
+                        i = r - 1;
+                    }
+                }
+                else if (c == '<')
+                {
+                    words->Concat(words, tempWords);
+                }
+                else if (c == '>')
+                {
                     state = STATE_NORMAL;
+                    DeleteArray(tempWords);
+                    tempWords = NewArray();
+                }
                 break;
             }
         }
     }
+
+    words->Concat(words, tempWords);
+
+    for (i = 0; i < words->length; i++)
+    {
+        char *word = words->Get(words, i);
+        counter->feed(counter, word);
+    }
+
+    counter->stop(counter); // EOF will always be seemed as a stopword.
+    DeleteArray(words);
 }
 
 int main(int argc, char *argv[])
 {
-    word = build_regex_array("\\w[\\w']+");
+    word = build_regex_array("\\w+'?\\w+");
     openingScript = build_regex_array("<script.*>");
     closingScript = build_regex_array("</script.*>");
-    htmlTag = build_regex_array("<.*[\\w\\d]+.*>");
     htmlChars = build_regex_array("&\\w+;");
 
     Counter *counter = NewCounter();

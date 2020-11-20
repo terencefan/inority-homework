@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "map.h"
-#include "array.h"
 #include "linked_list.h"
 
 #define MOD 1000000007
@@ -185,15 +184,22 @@ void MapIteratorNext(MapIterator *iter)
     iter->current = NULL;
     inner->index++;
 
-    if (inner->index < inner->array->length) {
+    if (inner->index < inner->array->length)
+    {
         iter->current = inner->array->Get(inner->array, inner->index);
     }
+}
+
+void MapIteratorReset(MapIterator *iter)
+{
+    MapIteratorInner *inner = INNER_ITER(iter);
+    inner->index = -1;
+    MapIteratorNext(iter);
 }
 
 MapIterator *NewMapIterator(Map *map)
 {
     MapIteratorInner *inner = calloc(1, sizeof(MapIteratorInner) + sizeof(MapIterator));
-    inner->index = -1;
     inner->array = NewArray();
     Array *array = inner->array;
 
@@ -210,13 +216,22 @@ MapIterator *NewMapIterator(Map *map)
     }
 
     MapIterator *iter = (MapIterator *)((char *)inner + sizeof(MapIteratorInner));
-    iter->current = NULL;
     iter->Next = MapIteratorNext;
-    MapIteratorNext(iter);
+    iter->Reset = MapIteratorReset;
+
+    MapIteratorReset(iter);
     return iter;
+}
+
+Array *GetMapIteratorArray(MapIterator *iter)
+{
+    MapIteratorInner *inner = INNER_ITER(iter);
+    return inner->array;
 }
 
 void DeleteMapIterator(MapIterator *iter)
 {
-    free(INNER_ITER(iter));
+    MapIteratorInner *inner = INNER_ITER(iter);
+    free(inner->array);
+    free(inner);
 }

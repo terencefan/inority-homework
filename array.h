@@ -1,3 +1,6 @@
+#ifndef ARRAY
+#define ARRAY
+
 typedef struct _Array Array;
 
 struct _Array
@@ -6,11 +9,14 @@ struct _Array
     int length;
     void **items;
 
+    void (*Swap)(Array *arr, int i, int j);
     int (*Append)(Array *arr, void *item);
-    void* (*Pop)(Array *arr);
+    Array *(*Concat)(Array *arr, Array *other);
+    void *(*Pop)(Array *arr);
     void *(*Get)(Array *arr, int index);
 };
 
 Array *NewArray();
 
 void DeleteArray(Array *arr);
+#endif
