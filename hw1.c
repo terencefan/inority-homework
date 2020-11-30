@@ -10,16 +10,19 @@
 
 #define INF ((1 << 30) - 1 + (1 << 30))
 
-#define CLASS_ANY 1
-#define CLASS_DIGIT 2
-#define CLASS_NDIGIT 3
-#define CLASS_LETTER 4
-#define CLASS_NLETTER 5
-#define CLASS_WHITESPACE 6
+#define CLASS_ANY 1           // .
+#define CLASS_DIGIT 2         // \d
+#define CLASS_NDIGIT 3        // \D
+#define CLASS_LETTER 4        // \w
+#define CLASS_NLETTER 5       // \W
+#define CLASS_WHITESPACE 6    // \s
+#define CLASS_NWHITESPACE 7   // \S
 
-#define C_SINGLE 1 // a single character
-#define C_CLASS 2  // character class, like '.', '\\', '\w', '\d'
-#define C_GROUP 3  // character group, like '[abc]'
+#define C_SINGLE 1      // a single character, like 'a', '0', '\\', '<', '['
+#define C_CLASS 2       // character class, like '.', '\\', '\w', '\d'
+#define C_GROUP 3       // character group, like '[abc]'
+#define C_BEGINNING 4   // beginning, ^
+#define C_END 5         // end, $
 
 #define INCLUSIVE 0
 #define EXCLUSIVE 1
@@ -68,7 +71,7 @@ typedef struct
 
 } RegexItem;
 
-int parse_mode(char c)
+int get_character_class_mode(char c)
 {
    switch (c)
    {
@@ -84,30 +87,34 @@ int parse_mode(char c)
       return CLASS_NLETTER;
    case 's':
       return CLASS_WHITESPACE;
+   case 'S':
+      return CLASS_NWHITESPACE;
    default:
       ERROR_LOG("Invalid special character: \\%c", c);
    }
    return 0;
 }
 
+RegexItem* NewRegexItem(int category) {
+   RegexItem *item = calloc(1, sizeof(RegexItem));
+   item->category = category;
+   item->repeatMax = 1;
+   item->repeatMin = 1;
+   return item;
+}
+
 RegexItem *NewCharacterClass(char c)
 {
    DEBUG_LOG("new character class \\%c", c);
-   RegexItem *item = malloc(sizeof(RegexItem));
-   item->u.mode = parse_mode(c);
-   item->category = C_CLASS;
-   item->repeatMin = 1;
-   item->repeatMax = 1;
+   RegexItem *item = NewRegexItem(C_CLASS);
+   item->u.mode = get_character_class_mode(c);
    return item;
 }
 
 RegexItem *NewCharactor(char c)
 {
    DEBUG_LOG("new character %c", c);
-   RegexItem *item = malloc(sizeof(RegexItem));
-   item->category = C_SINGLE;
-   item->repeatMin = 1;
-   item->repeatMax = 1;
+   RegexItem *item = NewRegexItem(C_SINGLE);
    item->u.c = c;
    return item;
 }
@@ -115,10 +122,7 @@ RegexItem *NewCharactor(char c)
 RegexItem *NewCharacterGroup()
 {
    DEBUG_LOG("new character group");
-   RegexItem *item = malloc(sizeof(RegexItem));
-   item->category = C_GROUP;
-   item->repeatMin = 1;
-   item->repeatMax = 1;
+   RegexItem *item = NewRegexItem(C_GROUP);
    item->u.group = malloc(sizeof(CharacterGroup));
    item->u.group->type = INCLUSIVE;
    item->u.group->items = NewArray();
@@ -175,24 +179,43 @@ int TryMatch(RegexItem *item, char c)
       }
       return group->type == EXCLUSIVE;
    }
+   else if (item->category == C_BEGINNING) {
+
+   }
+   else if (item->category == C_END) {
+
+   }
    else
       ERROR_LOG("unknown regex item category: %d", item->category);
    return 0;
 }
 
-RegexItem *parse_character_class(const char *regex, int *index)
+RegexItem *parse_escape_character(const char *regex, int *index)
 {
    if (regex[*index] != '\\' || (*index + 1) >= strlen(regex))
-      ERROR_LOG("character class should start with '\\'");
+      ERROR_LOG("an escaped character should start with a '\\' and have at least length of 2");
    *index += 1; // move 1 step forward to skip '\\'
 
    char c = regex[*index];
-   if (c == '.' || c == '\\')
+   switch (c)
    {
-      // \. and \\ are not character class.
+   case '.':
+   case '\\':
+   case '^':
+   case '$':
+   case '?':
+   case '+':
+   case '*':
+   case '{':
+   case '}':
+   case '[':
+   case ']':
+   case '(':
+   case ')':
       return NewCharactor(c);
+   default:
+      return NewCharacterClass(regex[*index]);
    }
-   return NewCharacterClass(regex[*index]);
 }
 
 RegexItem *parse_character_group(const char *regex, int *index)
@@ -222,7 +245,7 @@ RegexItem *parse_character_group(const char *regex, int *index)
          items->Append(items, temp);
          break;
       case '\\':
-         temp = parse_character_class(regex, index);
+         temp = parse_escape_character(regex, index);
          items->Append(items, temp);
          break;
       default:
@@ -248,7 +271,9 @@ Array *build_regex_array(const char *regex)
       }
    }
 
-   for (int i = 0; i < strlen(regex); i++)
+   int len = strlen(regex);
+
+   for (int i = 0; i < len; i++)
    {
       char c = regex[i];
       RegexItem *item = current;
@@ -275,11 +300,31 @@ Array *build_regex_array(const char *regex)
          regexArr->Append(regexArr, item);
          break;
       case '\\':
-         item = parse_character_class(regex, &i);
+         item = parse_escape_character(regex, &i);
          regexArr->Append(regexArr, item);
          break;
+      case '(':
+         ERROR_LOG("TODO, indicate maching groups.");
       case '[':
          item = parse_character_group(regex, &i);
+         regexArr->Append(regexArr, item);
+         break;
+      case '{':
+         ERROR_LOG("TODO, indicate repeat times.");
+      case ')':
+      case ']':
+      case '}':
+         ERROR_LOG("invalid regex string at position %d", i);
+      case '^':
+         if (i != 0)
+            ERROR_LOG("^ must present at the beginning of a valid regex string.");
+         item = NewRegexItem(C_BEGINNING);
+         regexArr->Append(regexArr, item);
+         break;
+      case '$':
+         if (i != len - 1)
+            ERROR_LOG("$ must present at the end of a valid regex string.");
+         item = NewRegexItem(C_END);
          regexArr->Append(regexArr, item);
          break;
       default:
@@ -300,6 +345,14 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
    RegexItem *item = (RegexItem *)regexArr->Get(regexArr, regexIndex);
    if (item == NULL)
       ERROR_LOG("array get out of bounds");
+
+   if (item->category == C_BEGINNING) {
+      return strIndex == 0 ? regex_line_match_backtrace(str, regexArr, 0, regexIndex + 1) : -1;
+   }
+
+   if (item->category == C_END) {
+      return strIndex == strlen(str) ? strIndex : -1;
+   }
 
    DEBUG_LOG("working on regex %d, position %d", regexIndex, strIndex)
 
@@ -326,9 +379,27 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
    return -1;
 }
 
+/**
+ * Deprecated, use regex_match_line instead.
+ */
 int regex_line_match(const char *line, Array *regexArr, int left)
 {
    return regex_line_match_backtrace(line, regexArr, left, 0);
+}
+
+int regex_match_line(const char *line, Array *regexArr, int *l, int *r)
+{
+   for (int left = 0; line[left] != '\0'; left++)
+   {
+      int right = regex_line_match(line, regexArr, left);
+      if (right >= 0)
+      {
+         *l = left;
+         *r = right;
+         return 1;
+      }
+   }
+   return 0;
 }
 
 void read_regex(const char *filename, char *regex)
@@ -414,20 +485,9 @@ int main(int argc, char *argv[])
 
 int test_match(const char* input, const char* regex, int* l, int* r) {
    Array *regexArr = build_regex_array(regex);
-
-   for (int left = 0; input[left] != '\0'; left++)
-   {
-      int right = regex_line_match(input, regexArr, left);
-      if (right >= 0)
-      {
-         *l = left;
-         *r = right;
-         return 1;
-      }
-   }
-   return 0;
-
+   int v = regex_match_line(input, regexArr, l, r);
    DeleteArray(regexArr);
+   return v;
 }
 
 void test(const char* input, const char* regex) {
@@ -446,13 +506,20 @@ void test(const char* input, const char* regex) {
 }
 
 int main() {
-   test("abbbbbb", "a.*");
-   test("bbbbbb", "a.*");
-   test("bbbbbb", "a?.*");
-   test("cbaddcee", "a.*");
-   test("cbaddcee", "c.*d");
-   test("cbaddcee", "c.*c?e*");
-   test("cbaddee", "c.*c?e*");
-   test("cbaddee", "c.*ce*");
+   // test("abbbbbb", "a.*");
+   // test("bbbbbb", "a.*");
+   // test("bbbbbb", "a?.*");
+   // test("cbaddcee", "a.*");
+   // test("cbaddcee", "c.*d");
+   // test("cbaddcee", "c.*c?e*");
+   // test("cbaddee", "c.*c?e*");
+   // test("cbaddee", "c.*ce*");
+
+   // test("abbbbc", "b+");
+   test("abbbbc", "^b+");
+   test("abbbbc", "^ab+");
+   test("abbbbc", "b+$");
+   test("abbbbc", "b+c$");
+   test("abbbbc", "^ab+c$");
 }
 #endif
