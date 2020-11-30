@@ -11,6 +11,32 @@
         debug_log(fmt, ##__VA_ARGS__); \
     } while (0);
 
+#define INF ((1 << 30) - 1 + (1 << 30))
+
+#define C_SINGLE 1              // a single character, like 'a', '0', '\\', '<', '['
+#define C_CLASS 2               // character class, like '.', '\\', '\w', '\d'
+#define C_BEGINNING 4           // beginning, ^
+#define C_END 5                 // end, $
+#define C_GROUP_CAPTURING 6     // a capturing group, like (\w+), the outer most regex will always be a capture group.
+#define C_GROUP_INCLUSIVE 7     // character group in inclusive mode, like '[abc]'
+#define C_GROUP_EXCLUSIVE 8     // character group in exclusive mode, like '[^abc]'
+
+typedef struct
+{
+   int category;
+
+   int repeatMin;
+   int repeatMax;
+
+   union
+   {
+       char c;          // for a single character
+       int mode;        // for character class
+       Array *items;    // for character/capturing group
+   } u;
+
+} RegexItem;
+
 /**
  * log to stderr.
  * format is the string format that needs to be printed
@@ -37,4 +63,6 @@ Array *build_regex_array(const char *regex);
  */
 int regex_line_match(const char *line, Array *regexArr, int left);
 
-int regex_match_line(const char *line, Array *regexArr, int* l, int* r);
+RegexItem* parse_capturing_group(const char *regex, int *index);
+
+void parse_quantifiers(const char *regex, int *index, int *min, int *max);
