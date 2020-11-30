@@ -8,6 +8,8 @@
 
 #include "hw1.h"
 
+#define INF ((1 << 30) - 1 + (1 << 30))
+
 #define CLASS_ANY 1
 #define CLASS_DIGIT 2
 #define CLASS_NDIGIT 3
@@ -18,11 +20,6 @@
 #define C_SINGLE 1 // a single character
 #define C_CLASS 2  // character class, like '.', '\\', '\w', '\d'
 #define C_GROUP 3  // character group, like '[abc]'
-
-#define T_1 1
-#define T_01 2 // ?
-#define T_1N 3 // +
-#define T_0N 4 // *
 
 #define INCLUSIVE 0
 #define EXCLUSIVE 1
@@ -57,8 +54,10 @@ typedef struct
 
 typedef struct
 {
-   int wildcardType;
    int category;
+
+   int repeatMin;
+   int repeatMax;
 
    union
    {
@@ -97,7 +96,8 @@ RegexItem *NewCharacterClass(char c)
    RegexItem *item = malloc(sizeof(RegexItem));
    item->u.mode = parse_mode(c);
    item->category = C_CLASS;
-   item->wildcardType = T_1;
+   item->repeatMin = 1;
+   item->repeatMax = 1;
    return item;
 }
 
@@ -106,7 +106,8 @@ RegexItem *NewCharactor(char c)
    DEBUG_LOG("new character %c", c);
    RegexItem *item = malloc(sizeof(RegexItem));
    item->category = C_SINGLE;
-   item->wildcardType = T_1;
+   item->repeatMin = 1;
+   item->repeatMax = 1;
    item->u.c = c;
    return item;
 }
@@ -116,7 +117,8 @@ RegexItem *NewCharacterGroup()
    DEBUG_LOG("new character group");
    RegexItem *item = malloc(sizeof(RegexItem));
    item->category = C_GROUP;
-   item->wildcardType = T_1;
+   item->repeatMin = 1;
+   item->repeatMax = 1;
    item->u.group = malloc(sizeof(CharacterGroup));
    item->u.group->type = INCLUSIVE;
    item->u.group->items = NewArray();
@@ -254,15 +256,18 @@ Array *build_regex_array(const char *regex)
       switch (c)
       {
       case '?':
-         current->wildcardType = T_01;
+         current->repeatMin = 0;
+         current->repeatMax = 1;
          DEBUG_LOG("set wildcardType to ?");
          break;
       case '+':
-         current->wildcardType = T_1N;
+         current->repeatMin = 1;
+         current->repeatMax = INF;
          DEBUG_LOG("set wildcardType to +");
          break;
       case '*':
-         current->wildcardType = T_0N;
+         current->repeatMin = 0;
+         current->repeatMax = INF;
          DEBUG_LOG("set wildcardType to *");
          break;
       case '.':
@@ -295,37 +300,28 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
    RegexItem *item = (RegexItem *)regexArr->Get(regexArr, regexIndex);
    if (item == NULL)
       ERROR_LOG("array get out of bounds");
-   // DEBUG_LOG("regex item category: %d,: regex item wildcard type: %d", item->category, item->wildcardType);
+
+   DEBUG_LOG("working on regex %d, position %d", regexIndex, strIndex)
+
+   int min = item->repeatMin;
+   int max = item->repeatMax;
 
    int left = strIndex, right = strIndex;
-   if (TryMatch(item, str[left]))
-      right++;
-   else if (item->wildcardType == T_1 || item->wildcardType == T_1N)
-      return -1;
+   int len = strlen(str);
 
-   switch (item->wildcardType)
-   {
-   case T_1N:
-      left++; // skip first character
-   case T_0N:
-      // find the right most matched character.
-      while (right < strlen(str) && TryMatch(item, str[right]))
-         right++;
-      break;
-   case T_1:
-      left++; // skip first character
-   case T_01:
-      break;
-   default:
-      ERROR_LOG("unknown repeat type: %d", item->wildcardType);
+   while (right < len && right - left < max && TryMatch(item, str[right])) // try matching chacters until reaches max repeat times.
+      right++;
+   // DEBUG_LOG("left: %d, right: %d\n", left, right);
+
+   if (right - left < min) { // matching characters are less than minimum request.
+      return -1;
    }
 
-   for (; right >= left; right--)
-   {
+   while (right >= left + min) { // to the left most possible index.
       int r = regex_line_match_backtrace(str, regexArr, right, regexIndex + 1);
-      if (r < 0)
-         continue;
-      return r;
+      if (r >= 0)
+         return r;
+      right--;
    }
    return -1;
 }
@@ -361,10 +357,9 @@ int regex_match(const char *filename, const char *regex, char ***matches, int tr
    int count = 0;
    while ((read = getline(&line, &len, fp)) != -1)
    {
-      line[strlen(line) - 1] = '\0';
       for (int left = 0; line[left] != '\0'; left++)
       {
-         int right = regex_line_match_backtrace(line, regexArr, left, 0);
+         int right = regex_line_match(line, regexArr, left);
          if (right < 0)
             continue;
 
@@ -414,5 +409,50 @@ int main(int argc, char *argv[])
       printf("%s\n", matches[i]);
    }
    return 0;
+}
+#else
+
+int test_match(const char* input, const char* regex, int* l, int* r) {
+   Array *regexArr = build_regex_array(regex);
+
+   for (int left = 0; input[left] != '\0'; left++)
+   {
+      int right = regex_line_match(input, regexArr, left);
+      if (right >= 0)
+      {
+         *l = left;
+         *r = right;
+         return 1;
+      }
+   }
+   return 0;
+
+   DeleteArray(regexArr);
+}
+
+void test(const char* input, const char* regex) {
+   printf("%s, %s\n", input, regex);
+
+   int l, r;
+   if (test_match(input, regex, &l, &r)) {
+      char buf[256];
+      strncpy(buf, input + l, r - l);
+      printf("--- matches: %s\n", buf);
+   }
+   else
+   {
+      printf("--- match failed.\n");
+   }
+}
+
+int main() {
+   test("abbbbbb", "a.*");
+   test("bbbbbb", "a.*");
+   test("bbbbbb", "a?.*");
+   test("cbaddcee", "a.*");
+   test("cbaddcee", "c.*d");
+   test("cbaddcee", "c.*c?e*");
+   test("cbaddee", "c.*c?e*");
+   test("cbaddee", "c.*ce*");
 }
 #endif
