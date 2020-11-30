@@ -8,13 +8,13 @@
 
 #include "hw1.h"
 
-#define CLASS_ANY 1           // .
-#define CLASS_DIGIT 2         // \d
-#define CLASS_NDIGIT 3        // \D
-#define CLASS_LETTER 4        // \w
-#define CLASS_NLETTER 5       // \W
-#define CLASS_WHITESPACE 6    // \s
-#define CLASS_NWHITESPACE 7   // \S
+#define CLASS_ANY 1         // .
+#define CLASS_DIGIT 2       // \d
+#define CLASS_NDIGIT 3      // \D
+#define CLASS_LETTER 4      // \w
+#define CLASS_NLETTER 5     // \W
+#define CLASS_WHITESPACE 6  // \s
+#define CLASS_NWHITESPACE 7 // \S
 
 #define INCLUSIVE 0
 #define EXCLUSIVE 1
@@ -65,7 +65,8 @@ int get_character_class_mode(char c)
    return 0;
 }
 
-RegexItem* NewRegexItem(int category) {
+RegexItem *NewRegexItem(int category)
+{
    RegexItem *item = calloc(1, sizeof(RegexItem));
    item->category = category;
    item->repeatMax = 1;
@@ -133,6 +134,8 @@ int TryMatch(RegexItem *item, char c)
          return !isalpha(c);
       case CLASS_WHITESPACE:
          return isspace(c);
+      case CLASS_NWHITESPACE:
+         return !isspace(c);
       }
    }
    else if (item->category == C_GROUP_EXCLUSIVE || item->category == C_GROUP_INCLUSIVE)
@@ -182,12 +185,19 @@ RegexItem *parse_escape_character(const char *regex, int *index)
 
 RegexItem *parse_character_group(const char *regex, int *index)
 {
-   if (regex[*index] != '[')
-      ERROR_LOG("character group should start with '['");
+   if (regex[*index] != '[' || (*index + 1) >= strlen(regex))
+      ERROR_LOG("character group should start with '[' and have at least length of 2");
+   *index += 1; // move 1 step forward to skip '\\'
 
    RegexItem *group = NewCharacterGroup();
    RegexItem *temp;
    Array *items = group->u.items;
+
+   if (regex[*index] == '^')
+   {
+      group->category = C_GROUP_EXCLUSIVE;
+      *index += 1; // move 1 step forward to skip '^'
+   }
 
    for (; *index < strlen(regex); (*index)++)
    {
@@ -200,8 +210,7 @@ RegexItem *parse_character_group(const char *regex, int *index)
          DEBUG_LOG("end character group");
          return group;
       case '^':
-         group->category = C_GROUP_EXCLUSIVE;
-         break;
+         ERROR_LOG("^ could only present at the beginning of a character group.");
       case '.': // A single '.' is also a character class.
          temp = NewCharacterClass(c);
          items->Append(items, temp);
@@ -222,12 +231,18 @@ RegexItem *parse_character_group(const char *regex, int *index)
 
 Array *build_regex_array(const char *regex)
 {
+   int index = 0;
+   return parse_regex_array(regex, &index, 0);
+}
+
+Array *parse_regex_array(const char *regex, int *index, int inGroup)
+{
    Array *regexArr = NewArray();
    RegexItem *current = NULL;
 
    if (strlen(regex) > 0)
    {
-      if (regex[0] == '+' || regex[0] == '?' || regex[0] == '*')
+      if (regex[*index] == '+' || regex[*index] == '?' || regex[*index] == '*')
       {
          ERROR_LOG("regex string couldn't start with wildcard characters");
       }
@@ -236,9 +251,9 @@ Array *build_regex_array(const char *regex)
    int len = strlen(regex);
    int min, max;
 
-   for (int index = 0; index < len; index++)
+   for (; *index < len; (*index)++)
    {
-      char c = regex[index];
+      char c = regex[*index];
       RegexItem *item = current;
 
       switch (c)
@@ -259,37 +274,41 @@ Array *build_regex_array(const char *regex)
          DEBUG_LOG("set wildcardType to *");
          break;
       case '.':
-         item = NewCharacterClass(c);
+         item = NewCharacterClass(c); // a single . is a special character class.
          regexArr->Append(regexArr, item);
          break;
       case '\\':
-         item = parse_escape_character(regex, &index);
+         item = parse_escape_character(regex, index);
          regexArr->Append(regexArr, item);
          break;
       case '(':
-         item = parse_capturing_group(regex, &index);
+         if (inGroup)
+            ERROR_LOG("capturing group cannot be nested.")
+         item = parse_capturing_group(regex, index);
          break;
       case '[':
-         item = parse_character_group(regex, &index);
+         item = parse_character_group(regex, index);
          regexArr->Append(regexArr, item);
          break;
       case '{':
-         parse_quantifiers(regex, &index, &min, &max);
+         parse_quantifiers(regex, index, &min, &max);
          current->repeatMin = min;
          current->repeatMax = max;
          break;
       case ')':
+         // indicate the ending of a capturing group.
+         return regexArr;
       case ']':
       case '}':
-         ERROR_LOG("invalid regex string at position %d", index);
+         ERROR_LOG("invalid regex string at position %d", *index);
       case '^':
-         if (index != 0)
+         if (*index != 0)
             ERROR_LOG("^ must present at the beginning of a valid regex string.");
          item = NewRegexItem(C_BEGINNING);
          regexArr->Append(regexArr, item);
          break;
       case '$':
-         if (index != len - 1)
+         if (*index != len - 1)
             ERROR_LOG("$ must present at the end of a valid regex string.");
          item = NewRegexItem(C_END);
          regexArr->Append(regexArr, item);
@@ -306,20 +325,23 @@ Array *build_regex_array(const char *regex)
 
 int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, int regexIndex)
 {
-   if (regexIndex == regexArr->length)
+   if (regexIndex >= regexArr->length)
       return strIndex;
 
    RegexItem *item = (RegexItem *)regexArr->Get(regexArr, regexIndex);
-   if (item == NULL)
-      ERROR_LOG("array get out of bounds");
 
-   if (item->category == C_BEGINNING) {
+   if (item->category == C_BEGINNING)
+   {
       return strIndex == 0 ? regex_line_match_backtrace(str, regexArr, 0, regexIndex + 1) : -1;
    }
 
-   if (item->category == C_END) {
+   if (item->category == C_END)
+   {
       return strIndex == strlen(str) ? strIndex : -1;
    }
+
+   if (item->category == C_GROUP_CAPTURING)
+      ERROR_LOG("this regex method cannot work with group capturing.");
 
    DEBUG_LOG("working on regex %d, position %d", regexIndex, strIndex)
 
@@ -333,11 +355,13 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
       right++;
    // DEBUG_LOG("left: %d, right: %d\n", left, right);
 
-   if (right - left < min) { // matching characters are less than minimum request.
+   if (right - left < min)
+   { // matching characters are less than minimum request.
       return -1;
    }
 
-   while (right >= left + min) { // to the left most possible index.
+   while (right >= left + min)
+   { // to the left most possible index.
       int r = regex_line_match_backtrace(str, regexArr, right, regexIndex + 1);
       if (r >= 0)
          return r;
@@ -433,9 +457,10 @@ int main(int argc, char *argv[])
    }
    return 0;
 }
-#else
+#endif
 
-int test_match(const char* line, const char* regex, int* l, int* r) {
+int test_match(const char *line, const char *regex, int *l, int *r)
+{
    Array *regexArr = build_regex_array(regex);
    for (int left = 0; line[left] != '\0'; left++)
    {
@@ -452,11 +477,13 @@ int test_match(const char* line, const char* regex, int* l, int* r) {
    return 0;
 }
 
-void test(const char* input, const char* regex) {
+void test(const char *input, const char *regex)
+{
    printf("%s, %s\n", input, regex);
 
    int l, r;
-   if (test_match(input, regex, &l, &r)) {
+   if (test_match(input, regex, &l, &r))
+   {
       char buf[256];
       strncpy(buf, input + l, r - l);
       printf("--- matches: %s\n", buf);
@@ -467,7 +494,9 @@ void test(const char* input, const char* regex) {
    }
 }
 
-int main() {
+#if !defined(HW1) && !defined(HW3)
+int main()
+{
    // test("abbbbbb", "a.*");
    // test("bbbbbb", "a.*");
    // test("bbbbbb", "a?.*");
@@ -484,9 +513,11 @@ int main() {
    // test("abbbbc", "b+c$");
    // test("abbbbc", "^ab+c$");
 
-   test("abcde", "a[bcd]+e");
-   test("abcde", "a[bc]+e");
+   // test("abcde", "a[bcd]+e");
+   // test("abcde", "a[bc]+e");
+   // test("abcde", "a[^e]+e");
+   // test("abcde", "a[^de]+e");
+
    test("abcde", "a[^e]+e");
-   test("abcde", "a[^de]+e");
 }
 #endif

@@ -13,43 +13,47 @@
 
 #define INF ((1 << 30) - 1 + (1 << 30))
 
-#define C_SINGLE 1              // a single character, like 'a', '0', '\\', '<', '['
-#define C_CLASS 2               // character class, like '.', '\\', '\w', '\d'
-#define C_BEGINNING 4           // beginning, ^
-#define C_END 5                 // end, $
-#define C_GROUP_CAPTURING 6     // a capturing group, like (\w+), the outer most regex will always be a capture group.
-#define C_GROUP_INCLUSIVE 7     // character group in inclusive mode, like '[abc]'
-#define C_GROUP_EXCLUSIVE 8     // character group in exclusive mode, like '[^abc]'
+#define C_SINGLE 1          // a single character, like 'a', '0', '\\', '<', '['
+#define C_CLASS 2           // character class, like '.', '\\', '\w', '\d'
+#define C_BEGINNING 4       // beginning, ^
+#define C_END 5             // end, $
+#define C_GROUP_CAPTURING 6 // a capturing group, like (\w+), the outer most regex will always be a capture group.
+#define C_GROUP_INCLUSIVE 7 // character group in inclusive mode, like '[abc]'
+#define C_GROUP_EXCLUSIVE 8 // character group in exclusive mode, like '[^abc]'
 
 typedef struct
 {
-   int category;
+    int category;
 
-   int repeatMin;
-   int repeatMax;
+    int repeatMin;
+    int repeatMax;
 
-   union
-   {
-       char c;          // for a single character
-       int mode;        // for character class
-       Array *items;    // for character/capturing group
-   } u;
+    union
+    {
+        char c;       // for a single character
+        int mode;     // for character class
+        Array *items; // for character/capturing group
+    } u;
+
+    int groupIndex;
 
 } RegexItem;
+
+RegexItem *NewRegexItem(int category);
 
 /**
  * log to stderr.
  * format is the string format that needs to be printed
  * can take as many arguments as needed
  */
-void error_log(const char* format, ...);
+void error_log(const char *format, ...);
 
 /**
  * log to stdout if in debug mode.
  * format is the string format that needs to be printed
  * can take as many arguments as needed
  */
-void debug_log(const char* format, ...);
+void debug_log(const char *format, ...);
 
 /**
  * read the regex string and build an array of regex item
@@ -63,6 +67,8 @@ Array *build_regex_array(const char *regex);
  */
 int regex_line_match(const char *line, Array *regexArr, int left);
 
-RegexItem* parse_capturing_group(const char *regex, int *index);
+Array *parse_regex_array(const char *regex, int *index, int inGroup);
+
+RegexItem *parse_capturing_group(const char *regex, int *index);
 
 void parse_quantifiers(const char *regex, int *index, int *min, int *max);
