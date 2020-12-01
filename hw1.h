@@ -67,8 +67,10 @@ Array *build_regex_array(const char *regex);
  */
 int regex_line_match(const char *line, Array *regexArr, int left);
 
+int regex_match_line(const char *line, Array *regexArr, char **matched, char ***groups, int *captured_groups);
+
 Array *parse_regex_array(const char *regex, int *index, int inGroup);
 
 RegexItem *parse_capturing_group(const char *regex, int *index);
 
-void parse_quantifiers(const char *regex, int *index, int *min, int *max);
+RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current);

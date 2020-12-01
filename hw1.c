@@ -60,7 +60,7 @@ int get_character_class_mode(char c)
    case 'S':
       return CLASS_NWHITESPACE;
    default:
-      ERROR_LOG("Invalid special character: \\%c", c);
+      ERROR_LOG("Invalid special character: \\%c", c)
    }
    return 0;
 }
@@ -112,8 +112,7 @@ void DeleteRegexItem(RegexItem *item)
    }
 }
 
-int TryMatch(RegexItem *item, char c)
-{
+int try_match_single_character(RegexItem *item, char c) {
    if (item->category == C_SINGLE)
    {
       return item->u.c == c;
@@ -138,27 +137,52 @@ int TryMatch(RegexItem *item, char c)
          return !isspace(c);
       }
    }
+   else
+      ERROR_LOG("This method only work with simple regex item categories.")
+   return 0;
+}
+
+int try_match_group_character(RegexItem *item, char c)
+{
+   if (item->category != C_GROUP_EXCLUSIVE && item->category != C_GROUP_INCLUSIVE)
+      ERROR_LOG("This method only work with character groups")
+
+   Array *items = item->u.items;
+   for (int itemIndex = 0; itemIndex < items->length; itemIndex++)
+   {
+      RegexItem *subItem = items->Get(items, itemIndex);
+      int matched = try_match_single_character(subItem, c);
+      if (matched)
+         return item->category == C_GROUP_INCLUSIVE;
+   }
+   return item->category == C_GROUP_EXCLUSIVE;
+}
+
+int TryMatch(RegexItem *item, const char* str, int index)
+{
+   if (index >= strlen(str)) { // this can be somehow optimized.
+      return -1;
+   }
+
+   if (item->category == C_SINGLE || item->category == C_CLASS)
+   {
+      return try_match_single_character(item, str[index]) ? index + 1 : -1;
+   }
    else if (item->category == C_GROUP_EXCLUSIVE || item->category == C_GROUP_INCLUSIVE)
    {
-      Array *items = item->u.items;
-      for (int itemIndex = 0; itemIndex < items->length; itemIndex++)
-      {
-         RegexItem *subItem = items->Get(items, itemIndex);
-         int matched = TryMatch(subItem, c);
-         if (matched)
-            return item->category == C_GROUP_INCLUSIVE;
-      }
-      return item->category == C_GROUP_EXCLUSIVE;
+      return try_match_group_character(item, str[index]) ? index + 1 : -1;
    }
+   else if (item->category == C_GROUP_CAPTURING) 
+      ERROR_LOG("matching for capturing group hasn't been supported.")
    else
-      ERROR_LOG("unknown regex item category: %d", item->category);
+      ERROR_LOG("unknown regex item category: %d", item->category)
    return 0;
 }
 
 RegexItem *parse_escape_character(const char *regex, int *index)
 {
    if (regex[*index] != '\\' || (*index + 1) >= strlen(regex))
-      ERROR_LOG("an escaped character should start with a '\\' and have at least length of 2");
+      ERROR_LOG("an escaped character should start with a '\\' and have at least length of 2")
    *index += 1; // move 1 step forward to skip '\\'
 
    char c = regex[*index];
@@ -186,7 +210,7 @@ RegexItem *parse_escape_character(const char *regex, int *index)
 RegexItem *parse_character_group(const char *regex, int *index)
 {
    if (regex[*index] != '[' || (*index + 1) >= strlen(regex))
-      ERROR_LOG("character group should start with '[' and have at least length of 2");
+      ERROR_LOG("character group should start with '[' and have at least length of 2")
    *index += 1; // move 1 step forward to skip '\\'
 
    RegexItem *group = NewCharacterGroup();
@@ -210,7 +234,7 @@ RegexItem *parse_character_group(const char *regex, int *index)
          DEBUG_LOG("end character group");
          return group;
       case '^':
-         ERROR_LOG("^ could only present at the beginning of a character group.");
+         ERROR_LOG("^ could only present at the beginning of a character group.")
       case '.': // A single '.' is also a character class.
          temp = NewCharacterClass(c);
          items->Append(items, temp);
@@ -225,7 +249,7 @@ RegexItem *parse_character_group(const char *regex, int *index)
          break;
       }
    }
-   ERROR_LOG("character group should end with ']'");
+   ERROR_LOG("character group should end with ']'")
    return NULL;
 }
 
@@ -238,41 +262,28 @@ Array *build_regex_array(const char *regex)
 Array *parse_regex_array(const char *regex, int *index, int inGroup)
 {
    Array *regexArr = NewArray();
-   RegexItem *current = NULL;
+   int len = strlen(regex);
 
-   if (strlen(regex) > 0)
+   if (*index < len)
    {
-      if (regex[*index] == '+' || regex[*index] == '?' || regex[*index] == '*')
+      switch (regex[*index])
       {
-         ERROR_LOG("regex string couldn't start with wildcard characters");
+      case '+':
+      case '?':
+      case '*':
+      case '{':
+         ERROR_LOG("invalid regex string at position %d", *index)
+         break;
       }
    }
 
-   int len = strlen(regex);
-   int min, max;
-
+   RegexItem *item;
    for (; *index < len; (*index)++)
    {
       char c = regex[*index];
-      RegexItem *item = current;
 
       switch (c)
       {
-      case '?':
-         current->repeatMin = 0;
-         current->repeatMax = 1;
-         DEBUG_LOG("set wildcardType to ?");
-         break;
-      case '+':
-         current->repeatMin = 1;
-         current->repeatMax = INF;
-         DEBUG_LOG("set wildcardType to +");
-         break;
-      case '*':
-         current->repeatMin = 0;
-         current->repeatMax = INF;
-         DEBUG_LOG("set wildcardType to *");
-         break;
       case '.':
          item = NewCharacterClass(c); // a single . is a special character class.
          regexArr->Append(regexArr, item);
@@ -291,25 +302,26 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
          regexArr->Append(regexArr, item);
          break;
       case '{':
-         parse_quantifiers(regex, index, &min, &max);
-         current->repeatMin = min;
-         current->repeatMax = max;
+      case '?':
+      case '+':
+      case '*':
+         item = parse_quantifiers(regex, index, item);
          break;
       case ')':
          // indicate the ending of a capturing group.
          return regexArr;
       case ']':
       case '}':
-         ERROR_LOG("invalid regex string at position %d", *index);
+         ERROR_LOG("invalid regex string at position %d", *index)
       case '^':
          if (*index != 0)
-            ERROR_LOG("^ must present at the beginning of a valid regex string.");
+            ERROR_LOG("^ must present at the beginning of a valid regex string.")
          item = NewRegexItem(C_BEGINNING);
          regexArr->Append(regexArr, item);
          break;
       case '$':
          if (*index != len - 1)
-            ERROR_LOG("$ must present at the end of a valid regex string.");
+            ERROR_LOG("$ must present at the end of a valid regex string.")
          item = NewRegexItem(C_END);
          regexArr->Append(regexArr, item);
          break;
@@ -318,12 +330,11 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
          regexArr->Append(regexArr, item);
          break;
       }
-      current = item;
    }
    return regexArr;
 }
 
-int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, int regexIndex)
+int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, int regexIndex, int occurence)
 {
    if (regexIndex >= regexArr->length)
       return strIndex;
@@ -332,7 +343,7 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
 
    if (item->category == C_BEGINNING)
    {
-      return strIndex == 0 ? regex_line_match_backtrace(str, regexArr, 0, regexIndex + 1) : -1;
+      return strIndex == 0 ? regex_line_match_backtrace(str, regexArr, 0, regexIndex + 1, 0) : -1;
    }
 
    if (item->category == C_END)
@@ -341,31 +352,27 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
    }
 
    if (item->category == C_GROUP_CAPTURING)
-      ERROR_LOG("this regex method cannot work with group capturing.");
+      ERROR_LOG("this regex method cannot work with group capturing.")
 
-   DEBUG_LOG("working on regex %d, position %d", regexIndex, strIndex)
+   DEBUG_LOG("working on regex #%d(%d-%d), position %d, occurence %d", regexIndex, item->repeatMin, item->repeatMax, strIndex, occurence)
 
-   int min = item->repeatMin;
-   int max = item->repeatMax;
-
-   int left = strIndex, right = strIndex;
-   int len = strlen(str);
-
-   while (right < len && right - left < max && TryMatch(item, str[right])) // try matching chacters until reaches max repeat times.
-      right++;
-   // DEBUG_LOG("left: %d, right: %d\n", left, right);
-
-   if (right - left < min)
-   { // matching characters are less than minimum request.
-      return -1;
+   if (occurence == item->repeatMax) { // move directly to the next regex item.
+      return regex_line_match_backtrace(str, regexArr, strIndex, regexIndex + 1, 0);
    }
 
-   while (right >= left + min)
-   { // to the left most possible index.
-      int r = regex_line_match_backtrace(str, regexArr, right, regexIndex + 1);
-      if (r >= 0)
-         return r;
-      right--;
+   if (strIndex < strlen(str)) // try consuming new characters only when current index smaller than the input str length.
+   {
+      int next = TryMatch(item, str, strIndex); // test if the str that starts from the current position matched the current regexItem.
+      if (next >= 0)
+      {
+         int right = regex_line_match_backtrace(str, regexArr, next, regexIndex, occurence + 1); // greedy approach to try matching more occurences.
+         if (right >= 0)
+            return right;
+      }
+   }
+
+   if (occurence >= item->repeatMin) { // move to the next regex item only if met the minimum occurence requirements.
+      return regex_line_match_backtrace(str, regexArr, strIndex, regexIndex + 1, 0); 
    }
    return -1;
 }
@@ -375,7 +382,7 @@ int regex_line_match_backtrace(const char *str, Array *regexArr, int strIndex, i
  */
 int regex_line_match(const char *line, Array *regexArr, int left)
 {
-   return regex_line_match_backtrace(line, regexArr, left, 0);
+   return regex_line_match_backtrace(line, regexArr, left, 0, 0);
 }
 
 void read_regex(const char *filename, char *regex)
@@ -383,7 +390,7 @@ void read_regex(const char *filename, char *regex)
    FILE *fp;
    fp = fopen(filename, "r");
    if (fp == NULL)
-      ERROR_LOG("failed to open regex file %s", filename);
+      ERROR_LOG("failed to open regex file %s", filename)
    fscanf(fp, "%s", regex);
 }
 
@@ -398,7 +405,7 @@ int regex_match(const char *filename, const char *regex, char ***matches, int tr
 
    fp = fopen(filename, "r");
    if (fp == NULL)
-      ERROR_LOG("failed to open file %s", filename);
+      ERROR_LOG("failed to open file %s", filename)
 
    Array *matchArr = NewArray();
    int count = 0;
@@ -445,7 +452,7 @@ int main(int argc, char *argv[])
    char **matches;
 
    if (argc < 3)
-      ERROR_LOG("Invalid arguments");
+      ERROR_LOG("Invalid arguments")
    char *regex_file = argv[1];
    char *text_file = argv[2];
 
@@ -464,7 +471,7 @@ int test_match(const char *line, const char *regex, int *l, int *r)
    Array *regexArr = build_regex_array(regex);
    for (int left = 0; line[left] != '\0'; left++)
    {
-      int right = regex_line_match_backtrace(line, regexArr, left, 0);
+      int right = regex_line_match_backtrace(line, regexArr, left, 0, 0);
       if (right >= 0)
       {
          *l = left;
@@ -518,6 +525,6 @@ int main()
    // test("abcde", "a[^e]+e");
    // test("abcde", "a[^de]+e");
 
-   test("abcde", "a[^e]+e");
+   test("abcde", "a[^e]{4,5}e");
 }
 #endif
