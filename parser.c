@@ -101,6 +101,7 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
          if (inGroup)
             ERROR_LOG("capturing group cannot be nested.")
          item = parse_capturing_group(regex, index);
+         regexArr->Append(regexArr, item);
          break;
       case '[':
          item = parse_character_group(regex, index);
@@ -179,8 +180,9 @@ RegexItem *parse_character_group(const char *regex, int *index)
 
    if (regex[*index] == '^')
    {
-      group->category = C_GROUP_EXCLUSIVE;
-      *index += 1; // move 1 step forward to skip '^'
+       DEBUG_LOG("character group set to exclusive mode");
+       group->category = C_GROUP_EXCLUSIVE;
+       *index += 1; // move 1 step forward to skip '^'
    }
 
    for (; *index < strlen(regex); (*index)++)
@@ -219,18 +221,19 @@ RegexItem *parse_capturing_group(const char *regex, int *index)
         ERROR_LOG("an capturing group must start with '('");
     *index += 1; // move 1 step forward to skip '('
 
+    DEBUG_LOG("start a capturing group")
     RegexItem *group = NewRegexItem(C_GROUP_CAPTURING);
     group->u.items = parse_regex_array(regex, index, 1);
 
     if (regex[*index] != ')')
         ERROR_LOG("an capturing group must end with ')'");
+    DEBUG_LOG("end a capturing group, with %d items", group->u.items->length)
     return group;
 }
 
 RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current)
 {
     char first = regex[*index];
-    *index += 1;
 
     switch (first)
     {
@@ -258,6 +261,7 @@ RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current)
     int len = strlen(regex);
     int num = 0;
     int state = 0; // 0: unmet ',' 1: met ','
+    *index += 1;
 
     while ((*index) < len)
     {

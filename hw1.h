@@ -54,6 +54,9 @@ typedef struct
     int start;
     int regexIndex;
     int strIndex;
+
+    RegexIter* iter;
+    int occurence;
 } RegexState;
 
 struct _RegexIter
@@ -67,7 +70,7 @@ struct _RegexIter
     int (*next)(RegexIter* iter);
 };
 
-RegexIter* NewRegexIter(const char* str, Array* regexArr);
+RegexIter* NewRegexIter(const char* str, Array* regexArr, int start);
 
 void DeleteRegexIter(RegexIter*);
 
