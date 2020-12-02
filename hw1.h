@@ -21,6 +21,14 @@
 #define C_GROUP_INCLUSIVE 7 // character group in inclusive mode, like '[abc]'
 #define C_GROUP_EXCLUSIVE 8 // character group in exclusive mode, like '[^abc]'
 
+#define CLASS_ANY 1         // .
+#define CLASS_DIGIT 2       // \d
+#define CLASS_NDIGIT 3      // \D
+#define CLASS_LETTER 4      // \w
+#define CLASS_NLETTER 5     // \W
+#define CLASS_WHITESPACE 6  // \s
+#define CLASS_NWHITESPACE 7 // \S
+
 typedef struct
 {
     int category;
@@ -39,7 +47,14 @@ typedef struct
 
 } RegexItem;
 
-RegexItem *NewRegexItem(int category);
+typedef struct
+{
+    int regexIndex;
+    int strIndex;
+} RegexState;
+
+RegexItem *
+NewRegexItem(int category);
 
 /**
  * log to stderr.
@@ -69,7 +84,13 @@ int regex_line_match(const char *line, Array *regexArr, int left);
 
 int regex_match_line(const char *line, Array *regexArr, char **matched, char ***groups, int *captured_groups);
 
+// parser.c
+
 Array *parse_regex_array(const char *regex, int *index, int inGroup);
+
+RegexItem *parse_escape_character(const char *regex, int *index);
+
+RegexItem *parse_character_group(const char *regex, int *index);
 
 RegexItem *parse_capturing_group(const char *regex, int *index);
 
