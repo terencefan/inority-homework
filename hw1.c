@@ -117,7 +117,6 @@ RegexState *NewRegexState(int strIndex, int regexIndex, int start)
    state->regexIndex = regexIndex;
    state->start = start;
    state->occurence = 0;
-   state->hasGrown = 0;
    return state;
 }
 
@@ -170,20 +169,19 @@ int regex_line_match(RegexIter* iter)
             stack->Append(stack, state); // pushback the previous state.
 
             DEBUG_LOG("occurence: %d, from %d to %d", occurence + 1, groupIter->start, groupIter->end)
-            if (occurence + 1 >= item->repeatMin)
+            if (occurence + 1 >= item->repeatMin && occurence + 1 <= item->repeatMax)
             {
                DEBUG_LOG("[push %d] move to the next regex item: %d, strIndex: %d", stack->length, regexIndex + 1, groupIter->end);
                stack->Append(stack, NewRegexState(groupIter->end, regexIndex + 1, start));
             }
 
             // we have to try to grow the occurence of a state, but only once.
-            if (occurence < item->repeatMax && !state->hasGrown)
+            if (occurence < item->repeatMax)
             {
                DEBUG_LOG("[push] state of group $%d tries to grow to %d", item->groupIndex, occurence + 1);
                RegexState *newState = NewRegexState(groupIter->end, regexIndex, start);
                newState->iter = NewRegexIter(str, item->u.items, groupIter->end);
                newState->occurence = occurence + 1;
-               state->hasGrown = 1;
                stack->Append(stack, newState);
             }
          }
@@ -356,6 +354,7 @@ int main()
    // test("abcde", "a[^e]+e");
    // test("abcde", "a[^de]+e");
 
-   test("(0991)484-3933", "^\\((\\d+)\\)(\\d+)-(\\d+)(\\d+)$");
+   test("09", "^(\\d+)$");
+   test("123456789", "^\\d(\\d{3,5})+\\d$");
 }
 #endif
