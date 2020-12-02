@@ -57,7 +57,7 @@ typedef struct
 
     RegexIter* iter;
     int occurence;
-    int grown;
+    int hasGrown;
 } RegexState;
 
 struct _RegexIter

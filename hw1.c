@@ -117,7 +117,7 @@ RegexState *NewRegexState(int strIndex, int regexIndex, int start)
    state->regexIndex = regexIndex;
    state->start = start;
    state->occurence = 0;
-   state->grown = 0;
+   state->hasGrown = 0;
    return state;
 }
 
@@ -177,13 +177,13 @@ int regex_line_match(RegexIter* iter)
             }
 
             // we have to try to grow the occurence of a state, but only once.
-            if (occurence < item->repeatMax && !state->grown)
+            if (occurence < item->repeatMax && !state->hasGrown)
             {
                DEBUG_LOG("[push] state of group $%d tries to grow to %d", item->groupIndex, occurence + 1);
                RegexState *newState = NewRegexState(groupIter->end, regexIndex, start);
                newState->iter = NewRegexIter(str, item->u.items, groupIter->end);
                newState->occurence = occurence + 1;
-               state->grown = 1;
+               state->hasGrown = 1;
                stack->Append(stack, newState);
             }
          }
@@ -356,6 +356,6 @@ int main()
    // test("abcde", "a[^e]+e");
    // test("abcde", "a[^de]+e");
 
-   test("(0991)484-3933", "^\\((\\d+)\\)(\\d+)-(\\d+)$");
+   test("(0991)484-3933", "^\\((\\d+)\\)(\\d+)-(\\d+)(\\d+)$");
 }
 #endif
