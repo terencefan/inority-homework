@@ -110,11 +110,12 @@ int try_match(RegexItem *item, const char *str, int index)
    return 0;
 }
 
-RegexState *NewState(int strIndex, int regexIndex)
+RegexState *NewRegexState(int strIndex, int regexIndex, int start)
 {
    RegexState *state = calloc(1, sizeof(RegexState));
    state->strIndex = strIndex;
    state->regexIndex = regexIndex;
+   state->start = start;
    return state;
 }
 
@@ -123,38 +124,31 @@ void DeleteState(RegexState *state)
    free(state);
 }
 
-Array *build_regex_array(const char *regex)
+int regex_line_match(RegexIter* iter)
 {
-   int index = 0;
-   return parse_regex_array(regex, &index, 0);
-}
+   const char* str = iter->str;
+   Array* regexArr = iter->regexArray;
+   Array *stack = iter->stack;
 
-int regex_line_match(const char *str, Array *regexArr, int start)
-{
    if (regexArr->length == 0)
       return -1;
    int len = strlen(str);
    int regexLen = regexArr->length;
-
-   Array *stack = NewArray();
-   stack->Append(stack, NewState(start, 0));
-
-   int result = -1;
 
    while (stack->length > 0)
    {
       RegexState *state = (RegexState*)stack->Pop(stack);
       int regexIndex = state->regexIndex;
       int strIndex = state->strIndex;
+      int start = state->start;
       DeleteState(state);
 
       if (regexIndex == regexLen)
       {
-         char buf[256] = "";
-         strncpy(buf, str + start, strIndex - start);
-         DEBUG_LOG("------ match: %s, from %d to %d", buf, start, strIndex);
-         result = result < 0 ? strIndex : result;
-         continue;
+         // find a match.
+         iter->start = start;
+         iter->end = strIndex;
+         return 1;
       }
 
       RegexItem *item = (RegexItem *)regexArr->Get(regexArr, regexIndex);
@@ -163,14 +157,14 @@ int regex_line_match(const char *str, Array *regexArr, int start)
       if (item->category == C_BEGINNING)
       {
          if (strIndex == 0)
-            stack->Append(stack, NewState(strIndex, regexIndex + 1));
+            stack->Append(stack, NewRegexState(strIndex, regexIndex + 1, start));
          continue;
       }
 
       if (item->category == C_END)
       {
          if (strIndex == len)
-            stack->Append(stack, NewState(strIndex, regexIndex + 1));
+            stack->Append(stack, NewRegexState(strIndex, regexIndex + 1, start));
          continue;
       }
 
@@ -184,7 +178,7 @@ int regex_line_match(const char *str, Array *regexArr, int start)
          if (occurence >= item->repeatMin) // it's a valid state and we can put it into stack.
          {
             DEBUG_LOG("occurence: %d, at position %d", occurence, strIndex + occurence)
-            stack->Append(stack, NewState(strIndex + occurence, regexIndex + 1));
+            stack->Append(stack, NewRegexState(strIndex + occurence, regexIndex + 1, start));
          }
          else
          {
@@ -192,9 +186,7 @@ int regex_line_match(const char *str, Array *regexArr, int start)
          }
       } while (occurence < item->repeatMax && try_match(item, str, strIndex + occurence));
    }
-
-   DeleteArray(stack);
-   return result;
+   return 0;
 }
 
 void read_regex(const char *filename, char *regex)
@@ -204,6 +196,45 @@ void read_regex(const char *filename, char *regex)
    if (fp == NULL)
       ERROR_LOG("failed to open regex file %s", filename)
    fscanf(fp, "%s", regex);
+}
+
+RegexIter *NewRegexIter(const char *str, Array *regexArr)
+{
+   RegexIter *iter = calloc(1, sizeof(RegexIter));
+   iter->str = str;
+   iter->start = -1;
+   iter->end = -1;
+   iter->regexArray = regexArr;
+   iter->stack = NewArray();
+
+   if (regexArr->length > 0)
+   {
+      RegexItem *item = (RegexItem *)regexArr->Get(regexArr, 0);
+      if (item->category == C_BEGINNING) // a simple optimize.
+         iter->stack->Append(iter->stack, NewRegexState(0, 0, 0));
+      else
+      {
+         for (int i = strlen(str); i >= 0; i--)
+         {
+            iter->stack->Append(iter->stack, NewRegexState(i, 0, i));
+         }
+      }
+   }
+
+   iter->next = regex_line_match;
+   return iter;
+}
+
+void DeleteRegexIter(RegexIter *iter)
+{
+   DeleteArray(iter->stack);
+   free(iter);
+}
+
+Array *build_regex_array(const char *regex)
+{
+   int index = 0;
+   return parse_regex_array(regex, &index, 0);
 }
 
 int regex_match(const char *filename, const char *regex, char ***matches, int trim_to_match)
@@ -223,22 +254,22 @@ int regex_match(const char *filename, const char *regex, char ***matches, int tr
    int count = 0;
    while ((read = getline(&line, &len, fp)) != -1)
    {
-      for (int left = 0; line[left] != '\0'; left++)
+      RegexIter *iter = NewRegexIter(line, regexArr);
+
+      while (iter->next(iter))
       {
-         int right = regex_line_match(line, regexArr, left);
-         if (right < 0)
-            continue;
+         int start = iter->start;
+         int end = iter->end;
 
          if (trim_to_match)
          {
-            char *buffer = malloc(right - left + 1);
-            strncpy(buffer, line + left, right - left);
-            buffer[right - left] = '\0';
+            char *buffer = calloc(1, end - start + 1);
+            strncpy(buffer, line + start, end - start);
             matchArr->Append(matchArr, buffer);
          }
          else
          {
-            char *buffer = malloc(strlen(line + 1));
+            char *buffer = calloc(1, strlen(line + 1));
             strcpy(buffer, line);
             matchArr->Append(matchArr, buffer);
          }
@@ -246,6 +277,8 @@ int regex_match(const char *filename, const char *regex, char ***matches, int tr
          count += 1;
          break;
       }
+
+      DeleteRegexIter(iter);
    }
 
    if (line)
@@ -278,39 +311,21 @@ int main(int argc, char *argv[])
 }
 #endif
 
-int test_match(const char *line, const char *regex, int *l, int *r)
+void test(const char *line, const char *regex)
 {
+   printf("%s, %s\n", line, regex);
+
    Array *regexArr = build_regex_array(regex);
-   for (int left = 0; line[left] != '\0'; left++)
+   RegexIter *iter = NewRegexIter(line, regexArr);
+   while (iter->next(iter))
    {
-      int right = regex_line_match(line, regexArr, left);
-      if (right >= 0)
-      {
-         *l = left;
-         *r = right;
-         DeleteArray(regexArr);
-         return 1;
-      }
+      int start = iter->start, end = iter->end;
+      char buf[256] = "";
+      strncpy(buf, line + start, end - start);
+      DEBUG_LOG("--- match: %s, from %d to %d", buf, start, end)
    }
+   DeleteRegexIter(iter);
    DeleteArray(regexArr);
-   return 0;
-}
-
-void test(const char *input, const char *regex)
-{
-   printf("%s, %s\n", input, regex);
-
-   int l, r;
-   if (test_match(input, regex, &l, &r))
-   {
-      char buf[256];
-      strncpy(buf, input + l, r - l);
-      printf("--- first match: %s\n", buf);
-   }
-   else
-   {
-      printf("--- match failed.\n");
-   }
 }
 
 #if !defined(HW1) && !defined(HW3)
@@ -337,6 +352,6 @@ int main()
    // test("abcde", "a[^e]+e");
    // test("abcde", "a[^de]+e");
 
-   test("abcddde", "^a[^e]{3,5}e$");
+   test("abaddde", "a[^e]{3,5}e");
 }
 #endif

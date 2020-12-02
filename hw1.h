@@ -29,6 +29,8 @@
 #define CLASS_WHITESPACE 6  // \s
 #define CLASS_NWHITESPACE 7 // \S
 
+typedef struct _RegexIter RegexIter;
+
 typedef struct
 {
     int category;
@@ -49,12 +51,25 @@ typedef struct
 
 typedef struct
 {
+    int start;
     int regexIndex;
     int strIndex;
 } RegexState;
 
-RegexItem *
-NewRegexItem(int category);
+struct _RegexIter
+{
+    const char *str;
+    int start;
+    int end;
+    Array *regexArray;
+    Array *stack;
+
+    int (*next)(RegexIter* iter);
+};
+
+RegexIter* NewRegexIter(const char* str, Array* regexArr);
+
+void DeleteRegexIter(RegexIter*);
 
 /**
  * log to stderr.
@@ -76,11 +91,6 @@ void debug_log(const char *format, ...);
  * returns: an array of regex items
  */
 Array *build_regex_array(const char *regex);
-
-/**
- * Deprecated, use regex_match_line instead.
- */
-int regex_line_match(const char *line, Array *regexArr, int left);
 
 int regex_match_line(const char *line, Array *regexArr, char **matched, char ***groups, int *captured_groups);
 
