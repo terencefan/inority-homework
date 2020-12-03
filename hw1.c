@@ -110,13 +110,15 @@ int try_match(RegexItem *item, const char *str, int index)
    return 0;
 }
 
-RegexState *NewRegexState(int strIndex, int regexIndex, int start)
+RegexState *NewRegexState(int strIndex, int regexIndex, RegexState *prev)
 {
    RegexState *state = calloc(1, sizeof(RegexState));
    state->strIndex = strIndex;
    state->regexIndex = regexIndex;
-   state->start = start;
+   state->start = -1;
+   state->end = -1;
    state->occurence = 0;
+   state->prev = prev;
    return state;
 }
 
@@ -127,10 +129,10 @@ void DeleteState(RegexState *state)
       DeleteRegexIter(state->iter);
 }
 
-int regex_line_match(RegexIter* iter)
+int regex_line_match(RegexIter *iter)
 {
-   const char* str = iter->str;
-   Array* regexArr = iter->regexArray;
+   const char *str = iter->str;
+   Array *regexArr = iter->regexArray;
    Array *stack = iter->stack;
 
    if (regexArr->length == 0)
@@ -140,71 +142,74 @@ int regex_line_match(RegexIter* iter)
 
    while (stack->length > 0)
    {
-      RegexState *state = (RegexState*)stack->Pop(stack);
+      RegexState *state = (RegexState *)stack->Pop(stack);
       DEBUG_LOG("[pop %d]", stack->length);
       int regexIndex = state->regexIndex;
       int strIndex = state->strIndex;
-      int start = state->start;
 
       if (regexIndex == regexLen)
       {
          // find a match.
-         iter->start = start;
          iter->end = strIndex;
+         iter->current = state;
          return 1;
       }
 
       RegexItem *item = (RegexItem *)regexArr->Get(regexArr, regexIndex);
       DEBUG_LOG("working on regex #%d(%d-%d), position %d", regexIndex, item->repeatMin, item->repeatMax, strIndex)
 
-      if (NULL != state->iter) // we have to drain all the possibilities
+      if (NULL != state->iter) // drain all the variants
       {
          RegexIter *groupIter = state->iter;
          int occurence = state->occurence;
          DEBUG_LOG("this is a state of group #%d, occurence: %d", item->groupIndex, occurence);
 
-         if (groupIter->next(groupIter)) // show its variant
+         if (groupIter->next(groupIter)) // show its variants.
          {
-            DEBUG_LOG("[push] push back");
-            stack->Append(stack, state); // pushback the previous state.
+            state->start = groupIter->start;
+            state->end = groupIter->end;
 
-            DEBUG_LOG("occurence: %d, from %d to %d", occurence + 1, groupIter->start, groupIter->end)
-            if (occurence + 1 >= item->repeatMin && occurence + 1 <= item->repeatMax)
+            DEBUG_LOG("[push] push back");
+            stack->Append(stack, state); // push back the state since it still has more variants.
+
+            DEBUG_LOG("occurence: %d, from %d to %d", occurence, groupIter->start, groupIter->end)
+
+            if (occurence >= item->repeatMin)
             {
                DEBUG_LOG("[push %d] move to the next regex item: %d, strIndex: %d", stack->length, regexIndex + 1, groupIter->end);
-               stack->Append(stack, NewRegexState(groupIter->end, regexIndex + 1, start));
+               stack->Append(stack, NewRegexState(groupIter->end, regexIndex + 1, state));
             }
 
-            // we have to try to grow the occurence of a state, but only once.
+            // try growing the occurence of a state while it's less than max occurences.
             if (occurence < item->repeatMax)
             {
                DEBUG_LOG("[push] state of group $%d tries to grow to %d", item->groupIndex, occurence + 1);
-               RegexState *newState = NewRegexState(groupIter->end, regexIndex, start);
+               RegexState *newState = NewRegexState(groupIter->end, regexIndex, state);
                newState->iter = NewRegexIter(str, item->u.items, groupIter->end);
                newState->occurence = occurence + 1;
                stack->Append(stack, newState);
             }
          }
-         else // the possibilities of this iterator has been drained.
+         else
          {
-            DEBUG_LOG("cant find a match from position %d, occurence %d", strIndex, occurence)
-            DeleteState(state);
+            state->start = -1;
+            state->end = -1;
+            DeleteRegexIter(state->iter);
          }
          continue;
       }
-      DeleteState(state);
 
       if (item->category == C_BEGINNING)
       {
          if (strIndex == 0)
-            stack->Append(stack, NewRegexState(strIndex, regexIndex + 1, start));
+            stack->Append(stack, NewRegexState(strIndex, regexIndex + 1, state));
          continue;
       }
 
       if (item->category == C_END)
       {
          if (strIndex == len)
-            stack->Append(stack, NewRegexState(strIndex, regexIndex + 1, start));
+            stack->Append(stack, NewRegexState(strIndex, regexIndex + 1, state));
          continue;
       }
 
@@ -212,33 +217,37 @@ int regex_line_match(RegexIter* iter)
       {
          if (item->repeatMin == 0) // simply skip the capturing group when the occurence of it can be 0
          {
-            RegexState *state = NewRegexState(strIndex, regexIndex + 1, start);
+            RegexState *state = NewRegexState(strIndex, regexIndex + 1, state);
             stack->Append(stack, state);
          }
 
-         DEBUG_LOG("adding capturing group matching...")
-         RegexState *state = NewRegexState(strIndex, regexIndex, start);
-         state->iter = NewRegexIter(str, item->u.items, strIndex);
-         state->occurence = 0;
-         stack->Append(stack, state);
+         if (item->repeatMax < item->repeatMin || item->repeatMax == 0)
+            ERROR_LOG("invalid occurence range [%d, %d]", item->repeatMin, item->repeatMax)
+
+         DEBUG_LOG("[push] adding capturing group matching...")
+         RegexState *newState = NewRegexState(strIndex, regexIndex, state);
+         newState->iter = NewRegexIter(str, item->u.items, strIndex);
+         newState->occurence = 1;
+         stack->Append(stack, newState);
       }
       else
       {
-         int occurence = -1;
-         do
+         for (int occurence = 0; occurence <= item->repeatMax; occurence++)
          {
-            occurence++;
             if (strIndex + occurence > len)
                break;
 
             if (occurence >= item->repeatMin) // it's a valid state and we can put it into stack.
             {
                DEBUG_LOG("occurence: %d, at position %d", occurence, strIndex + occurence)
-               stack->Append(stack, NewRegexState(strIndex + occurence, regexIndex + 1, start));
+               stack->Append(stack, NewRegexState(strIndex + occurence, regexIndex + 1, state));
             }
             else
                DEBUG_LOG("occurence: %d, skipped", occurence)
-         } while (occurence < item->repeatMax && try_match(item, str, strIndex + occurence));
+
+            if (!try_match(item, str, strIndex + occurence))
+               break;
+         }
       }
    }
    return 0;
@@ -254,18 +263,7 @@ RegexIter *NewRegexIter(const char *str, Array *regexArr, int start)
    iter->stack = NewArray();
 
    if (regexArr->length > 0)
-   {
-      RegexItem *item = (RegexItem *)regexArr->Get(regexArr, 0);
-      if (start >= 0) // specify the start position of matching process.
-         iter->stack->Append(iter->stack, NewRegexState(start, 0, start));
-      else if (item->category == C_BEGINNING) // a simple optimize.
-         iter->stack->Append(iter->stack, NewRegexState(0, 0, 0));
-      else
-      {
-         for (int i = strlen(str); i >= 0; i--)
-            iter->stack->Append(iter->stack, NewRegexState(i, 0, i));
-      }
-   }
+      iter->stack->Append(iter->stack, NewRegexState(start, 0, NULL));
 
    iter->next = regex_line_match;
    return iter;
@@ -313,21 +311,73 @@ int main(int argc, char *argv[])
 }
 #endif
 
-void test(const char *line, const char *regex)
+int test_match(const char *line, const char *regex, char **match, char ***groups, int *groupLen)
+{
+   int result = 0;
+   Array *regexArr = build_regex_array(regex);
+   Array *groupArr = NewArray();
+
+   for (int start = 0; start < strlen(line); start++)
+   {
+      RegexIter *iter = NewRegexIter(line, regexArr, start);
+      if (iter->next(iter))
+      {
+         result = 1;
+         *match = calloc(1, iter->end - iter->start);
+         strncpy(*match, line + iter->start, iter->end - iter->start);
+
+         RegexState *state = iter->current;
+         while (state != NULL)
+         {
+            if (state->start >= 0)
+            {
+               char *buf = calloc(1, state->end - state->start);
+               strncpy(buf, line + state->start, state->end - state->start);
+               groupArr->Append(groupArr, buf);
+            }
+            state = state->prev;
+         }
+         start = INF; // break;
+      }
+      DeleteRegexIter(iter);
+   }
+
+   *groups = calloc(groupArr->length + 1, sizeof(char *));
+   *groupLen = groupArr->length + 1;
+
+   for (int i = 1; i < *groupLen; i++)
+   {
+      (*groups)[i] = groupArr->Pop(groupArr);
+   }
+
+   free(groupArr->items);
+   free(groupArr);
+   DeleteArray(regexArr);
+   return result;
+}
+
+int test(const char *line, const char *regex)
 {
    printf("%s, %s\n", line, regex);
 
-   Array *regexArr = build_regex_array(regex);
-   RegexIter *iter = NewRegexIter(line, regexArr, -1);
-   while (iter->next(iter))
+   char *match;
+   char **groups;
+   int groupLen;
+
+   if (test_match(line, regex, &match, &groups, &groupLen))
    {
-      int start = iter->start, end = iter->end;
-      char buf[256] = "";
-      strncpy(buf, line + start, end - start);
-      printf("--- match: %s, from %d to %d\n", buf, start, end);
+      printf("--- match: %s\ngroups:", match);
+      for (int i = 1; i < groupLen; i++)
+      {
+         printf(" (%s)", groups[i]);
+         free(groups[i]);
+      }
+      printf("\n");
+      free(groups);
+      free(match);
+      return 1;
    }
-   DeleteRegexIter(iter);
-   DeleteArray(regexArr);
+   return 0;
 }
 
 #if !defined(HW1) && !defined(HW3)
@@ -354,7 +404,10 @@ int main()
    // test("abcde", "a[^e]+e");
    // test("abcde", "a[^de]+e");
 
-   test("09", "^(\\d+)$");
-   test("123456789", "^\\d(\\d{3,5})+\\d$");
+   // test("09", "^(\\d+)$");
+   test("123456789", "\\d(\\d{3,5})+\\d$");
+   test("(0991)484-3933", "\\((\\d++)\\)(\\d+){2}-(\\d+)");
+   test("$0.99", "(\\$\\d+\\.\\d{2})");
+   test("a <body class=\"abc\"> bbb", "<(\\w+)[^>]*>");
 }
 #endif

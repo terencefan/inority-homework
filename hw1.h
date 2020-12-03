@@ -30,6 +30,7 @@
 #define CLASS_NWHITESPACE 7 // \S
 
 typedef struct _RegexIter RegexIter;
+typedef struct _RegexState RegexState;
 
 typedef struct
 {
@@ -49,30 +50,37 @@ typedef struct
 
 } RegexItem;
 
-typedef struct
+struct _RegexState
 {
-    int start;
     int regexIndex;
     int strIndex;
 
-    RegexIter* iter;
+    RegexState *prev;
+
+    // for capturing group matching.
+    RegexIter *iter;
     int occurence;
-} RegexState;
+    int start;
+    int end;
+};
 
 struct _RegexIter
 {
     const char *str;
-    int start;
-    int end;
+
     Array *regexArray;
     Array *stack;
 
-    int (*next)(RegexIter* iter);
+    int start;
+    int end;
+    RegexState *current;
+
+    int (*next)(RegexIter *iter);
 };
 
-RegexIter* NewRegexIter(const char* str, Array* regexArr, int start);
+RegexIter *NewRegexIter(const char *str, Array *regexArr, int start);
 
-void DeleteRegexIter(RegexIter*);
+void DeleteRegexIter(RegexIter *);
 
 /**
  * log to stderr.

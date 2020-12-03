@@ -180,9 +180,9 @@ RegexItem *parse_character_group(const char *regex, int *index)
 
    if (regex[*index] == '^')
    {
-       DEBUG_LOG("character group set to exclusive mode");
-       group->category = C_GROUP_EXCLUSIVE;
-       *index += 1; // move 1 step forward to skip '^'
+      DEBUG_LOG("character group set to exclusive mode");
+      group->category = C_GROUP_EXCLUSIVE;
+      *index += 1; // move 1 step forward to skip '^'
    }
 
    for (; *index < strlen(regex); (*index)++)
@@ -217,82 +217,82 @@ RegexItem *parse_character_group(const char *regex, int *index)
 
 RegexItem *parse_capturing_group(const char *regex, int *index)
 {
-    if (regex[*index] != '(')
-        ERROR_LOG("an capturing group must start with '('");
-    *index += 1; // move 1 step forward to skip '('
+   if (regex[*index] != '(')
+      ERROR_LOG("an capturing group must start with '('");
+   *index += 1; // move 1 step forward to skip '('
 
-    DEBUG_LOG("start a capturing group")
-    RegexItem *group = NewRegexItem(C_GROUP_CAPTURING);
-    group->u.items = parse_regex_array(regex, index, 1);
+   DEBUG_LOG("start a capturing group")
+   RegexItem *group = NewRegexItem(C_GROUP_CAPTURING);
+   group->u.items = parse_regex_array(regex, index, 1);
 
-    if (regex[*index] != ')')
-        ERROR_LOG("an capturing group must end with ')'");
-    DEBUG_LOG("end a capturing group, with %d items", group->u.items->length)
-    return group;
+   if (regex[*index] != ')')
+      ERROR_LOG("an capturing group must end with ')'");
+   DEBUG_LOG("end a capturing group, with %d items", group->u.items->length)
+   return group;
 }
 
 RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current)
 {
-    char first = regex[*index];
+   char first = regex[*index];
 
-    switch (first)
-    {
-    case '?':
-        current->repeatMin = 0;
-        current->repeatMax = 1;
-        DEBUG_LOG("set wildcard to ?");
-        return current;
-    case '+':
-        current->repeatMin = 1;
-        current->repeatMax = INF;
-        DEBUG_LOG("set wildcard to +");
-        return current;
-    case '*':
-        current->repeatMin = 0;
-        current->repeatMax = INF;
-        DEBUG_LOG("set wildcard to *");
-        return current;
-    case '{':
-        break; // simply skip for furthur parsing process.
-    default:
-        ERROR_LOG("quantifier should start with '{'");
-    }
+   switch (first)
+   {
+   case '?':
+      current->repeatMin = 0;
+      current->repeatMax = 1;
+      DEBUG_LOG("set wildcard to ?");
+      return current;
+   case '+':
+      current->repeatMin = 1;
+      current->repeatMax = INF;
+      DEBUG_LOG("set wildcard to +");
+      return current;
+   case '*':
+      current->repeatMin = 0;
+      current->repeatMax = INF;
+      DEBUG_LOG("set wildcard to *");
+      return current;
+   case '{':
+      break; // simply skip for furthur parsing process.
+   default:
+      ERROR_LOG("quantifier should start with '{'");
+   }
 
-    int len = strlen(regex);
-    int num = 0;
-    int state = 0; // 0: unmet ',' 1: met ','
-    *index += 1;
+   int len = strlen(regex);
+   int num = 0;
+   int state = 0; // 0: unmet ',' 1: met ','
+   *index += 1;
 
-    while ((*index) < len)
-    {
-        char c = regex[*index];
-        if (c == ',')
-        {
-            if (state == 1)
-                ERROR_LOG("quantifier format error, ',' should not appear twice or more.");
-            current->repeatMin = num;
-            num = 0;
-            state = 1;
-        }
-        else if (c == '}')
-        {
-            if (state == 0)
-                current->repeatMin = current->repeatMax = num;
-            else if (num > 0)
-                current->repeatMax = num;
-            else
-                current->repeatMax = INF;
-            DEBUG_LOG("set repetetion to {%d, %d}", current->repeatMin, current->repeatMax);
-            return current;
-        }
-        else if (isdigit(c))
-        {
-            num = num * 10 + (int)(c - '0');
-        }
-        else
-            ERROR_LOG("quatifier format error, '%c' is not allowed.", c);
-        (*index)++;
-    }
-    ERROR_LOG("quantifier should end with '}'");
-    return NULL;
+   while ((*index) < len)
+   {
+      char c = regex[*index];
+      if (c == ',')
+      {
+         if (state == 1)
+            ERROR_LOG("quantifier format error, ',' should not appear twice or more.");
+         current->repeatMin = num;
+         num = 0;
+         state = 1;
+      }
+      else if (c == '}')
+      {
+         if (state == 0)
+            current->repeatMin = current->repeatMax = num;
+         else if (num > 0)
+            current->repeatMax = num;
+         else
+            current->repeatMax = INF;
+         DEBUG_LOG("set repetetion to {%d, %d}", current->repeatMin, current->repeatMax);
+         return current;
+      }
+      else if (isdigit(c))
+      {
+         num = num * 10 + (int)(c - '0');
+      }
+      else
+         ERROR_LOG("quatifier format error, '%c' is not allowed.", c);
+      (*index)++;
+   }
+   ERROR_LOG("quantifier should end with '}'");
+   return NULL;
 }

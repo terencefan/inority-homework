@@ -1,6 +1,6 @@
-#define DELETE_VAL 0x1
-
 #include "array.h"
+
+#define DELETE_VAL 0x1
 
 typedef struct _Map Map;
 typedef struct _MapSlot MapSlot;
