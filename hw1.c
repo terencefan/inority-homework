@@ -281,7 +281,6 @@ Array *build_regex_array(const char *regex)
    return parse_regex_array(regex, &index, 0);
 }
 
-#ifdef HW1
 void read_regex(const char *filename, char *regex)
 {
    FILE *fp;
@@ -289,6 +288,29 @@ void read_regex(const char *filename, char *regex)
    if (fp == NULL)
       ERROR_LOG("failed to open regex file %s", filename)
    fscanf(fp, "%s", regex);
+}
+
+int regex_match(const char *filename, const char *regex,
+                char ***matches, int trim_to_match,
+                char ***groups, int *captured_groups)
+{
+   FILE *fp;
+   char *line = NULL;
+   size_t len = 0;
+   size_t read;
+
+   char regexStr[256];
+   read_regex(regex, &regexStr);
+   Array *regexArr = build_regex_array(regexStr);
+
+   fp = fopen(filename, "r");
+   if (fp == NULL)
+      ERROR_LOG("failed to open file %s", filename);
+
+   while ((read = getline(&line, &len, fp)) != -1)
+   {
+      RegexIter *iter = NewRegexIter(line, regexArr, -1);
+   }
 }
 
 int main(int argc, char *argv[])
@@ -309,7 +331,6 @@ int main(int argc, char *argv[])
    }
    return 0;
 }
-#endif
 
 int test_match(const char *line, const char *regex, char **match, char ***groups, int *groupLen)
 {
