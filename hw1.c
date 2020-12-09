@@ -299,24 +299,51 @@ int regex_match(const char *filename, const char *regex,
    size_t len = 0;
    size_t read;
 
-   char regexStr[256];
-   read_regex(regex, &regexStr);
-   Array *regexArr = build_regex_array(regexStr);
-
    fp = fopen(filename, "r");
    if (fp == NULL)
       ERROR_LOG("failed to open file %s", filename);
 
+   Array *regexArr = build_regex_array(regex);
+
    while ((read = getline(&line, &len, fp)) != -1)
    {
-      RegexIter *iter = NewRegexIter(line, regexArr, -1);
+      for (int start = 0; start < strlen(line); start++)
+      {
+         RegexIter *iter = NewRegexIter(line, regexArr, start);
+         if (iter->next(iter))
+         {
+            char *match = calloc(1, iter->end - iter->start);
+            strncpy(match, line + iter->start, iter->end - iter->start);
+            printf("match: %s\ngroups:\n", match);
+
+            RegexState *state = iter->current;
+            while (state != NULL)
+            {
+               if (state->start >= 0)
+               {
+                  char *buf = calloc(1, state->end - state->start);
+                  strncpy(buf, line + state->start, state->end - state->start);
+                  printf("%s\n", buf);
+               }
+               state = state->prev;
+            }
+            DeleteRegexIter(iter);
+            break;
+         }
+         DeleteRegexIter(iter);
+      }
    }
+
+   DeleteArray(regexArr);
+   return 0;
 }
 
 int main(int argc, char *argv[])
 {
    char regex[512];
    char **matches;
+   char **groups;
+   int captured_groups;
 
    if (argc < 3)
       ERROR_LOG("Invalid arguments")
@@ -324,7 +351,7 @@ int main(int argc, char *argv[])
    char *text_file = argv[2];
 
    read_regex(regex_file, regex);
-   int count = regex_match(text_file, regex, &matches, 1);
+   int count = regex_match(text_file, regex, &matches, 1, &groups, &captured_groups);
    for (int i = 0; i < count; i++)
    {
       printf("%s\n", matches[i]);
@@ -332,103 +359,5 @@ int main(int argc, char *argv[])
    return 0;
 }
 
-int test_match(const char *line, const char *regex, char **match, char ***groups, int *groupLen)
-{
-   int result = 0;
-   Array *regexArr = build_regex_array(regex);
-   Array *groupArr = NewArray();
-
-   for (int start = 0; start < strlen(line); start++)
-   {
-      RegexIter *iter = NewRegexIter(line, regexArr, start);
-      if (iter->next(iter))
-      {
-         result = 1;
-         *match = calloc(1, iter->end - iter->start);
-         strncpy(*match, line + iter->start, iter->end - iter->start);
-
-         RegexState *state = iter->current;
-         while (state != NULL)
-         {
-            if (state->start >= 0)
-            {
-               char *buf = calloc(1, state->end - state->start);
-               strncpy(buf, line + state->start, state->end - state->start);
-               groupArr->Append(groupArr, buf);
-            }
-            state = state->prev;
-         }
-         start = INF; // break;
-      }
-      DeleteRegexIter(iter);
-   }
-
-   *groups = calloc(groupArr->length + 1, sizeof(char *));
-   *groupLen = groupArr->length + 1;
-
-   for (int i = 1; i < *groupLen; i++)
-   {
-      (*groups)[i] = groupArr->Pop(groupArr);
-   }
-
-   free(groupArr->items);
-   free(groupArr);
-   DeleteArray(regexArr);
-   return result;
-}
-
-int test(const char *line, const char *regex)
-{
-   printf("%s, %s\n", line, regex);
-
-   char *match;
-   char **groups;
-   int groupLen;
-
-   if (test_match(line, regex, &match, &groups, &groupLen))
-   {
-      printf("--- match: %s\ngroups:", match);
-      for (int i = 1; i < groupLen; i++)
-      {
-         printf(" (%s)", groups[i]);
-         free(groups[i]);
-      }
-      printf("\n");
-      free(groups);
-      free(match);
-      return 1;
-   }
-   return 0;
-}
-
-#if !defined(HW1) && !defined(HW3)
-int main()
-{
-   // test("abbbbbb", "a.*");
-   // test("bbbbbb", "a.*");
-   // test("bbbbbb", "a?.*");
-   // test("cbaddcee", "a.*");
-   // test("cbaddcee", "c.*d");
-   // test("cbaddcee", "c.*c?e*");
-   // test("cbaddee", "c.*c?e*");
-   // test("cbaddee", "c.*ce*");
-
-   // test("abbbbc", "b+");
-   // test("abbbbc", "^b+");
-   // test("abbbbc", "^ab+");
-   // test("abbbbc", "b+$");
-   // test("abbbbc", "b+c$");
-   // test("abbbbc", "^ab+c$");
-
-   // test("abcde", "a[bcd]+e");
-   // test("abcde", "a[bc]+e");
-   // test("abcde", "a[^e]+e");
-   // test("abcde", "a[^de]+e");
-
-   // test("09", "^(\\d+)$");
-   test("123456789", "\\d(\\d{3,5})+\\d$");
-   test("(0991)484-3933", "\\((\\d++)\\)(\\d+){2}-(\\d+)");
-   test("$0.99", "(\\$\\d+\\.\\d{2})");
-   test("a <body class=\"abc\"> bbb", "<(\\w+)[^>]*>");
-}
-#endif
+// test("123456789", "\\d(\\d{3,5})+\\d$");
+// test("(0991)484-3933", "\\((\\d++)\\)(\\d+){2}-(\\d+)");
