@@ -425,15 +425,12 @@ int main(int argc, char *argv[])
    char *text_file = argv[2];
 
    read_regex_file(regex_file, regex);
-   int count = regex_match(text_file, regex, &matches, 1, &groups, &captured_groups);
+   int count = regex_match(text_file, regex, &matches, 0, &groups, &captured_groups);
    for (int i = 0; i < count; i++)
       printf("matches: %s\n", matches[i]);
    printf("last captured groups:\n");
 
    for (int i = 1; i < captured_groups; i++)
-      printf("%s\n", groups[i]);
+      printf("%d. %s\n", i, groups[i]);
    return 0;
 }
-
-// test("123456789", "\\d(\\d{3,5})+\\d$");
-// test("(0991)484-3933", "\\((\\d++)\\)(\\d+){2}-(\\d+)");
