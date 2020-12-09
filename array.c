@@ -113,15 +113,3 @@ void *ArrayPop(Array *arr)
    arr->length--;
    return arr->items[arr->length];
 }
-
-/**
-* Free the array struct but keep the list of items
-* Array *arr: the array pointer
-* returns: pointer of the item list
-*/
-void **RemoveArray(Array *arr)
-{
-   void **r = arr->items;
-   free(arr);
-   return r;
-}

@@ -1,4 +1,4 @@
-#include "hw1.h"
+#include "hw3.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -123,11 +123,13 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
          if (*index != 0)
             ERROR_LOG("^ must present at the beginning of a valid regex string.")
          item = NewRegexItem(C_BEGINNING);
+         DEBUG_LOG("beginning")
          regexArr->Append(regexArr, item);
          break;
       case '$':
          if (*index != len - 1)
             ERROR_LOG("$ must present at the end of a valid regex string.")
+         DEBUG_LOG("ending")
          item = NewRegexItem(C_END);
          regexArr->Append(regexArr, item);
          break;
