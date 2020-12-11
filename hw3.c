@@ -434,7 +434,7 @@ int main(int argc, char *argv[])
    char *text_file = argv[2];
 
    read_regex_file(regex_file, regex);
-   int count = regex_match(text_file, regex, &matches, 0, &groups, &captured_groups);
+   int count = regex_match(text_file, regex, &matches, 1, &groups, &captured_groups);
    for (int i = 0; i < count; i++)
    {
       printf("matches: %s\n", matches[i]);
