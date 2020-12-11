@@ -7,10 +7,16 @@
 const int DEFAULT_ARR_CAPACITY = 32;
 
 int ArrayAppend(Array *arr, void *item);
-Array *ArrayConcat(Array *arr, Array *other);
+void ArrayReset(Array *arr, void (*callback)(void *));
 void *ArrayPop(Array *arr);
-void ArraySwap(Array *arr, int i, int j);
 void *ArrayGet(Array *arr, int index);
+void *ArrayLast(Array *arr);
+
+void clean(Array *arr, void (*callback)(void *))
+{
+   for (int index = 0; index < arr->length; index++)
+      callback(arr->items[index]);
+}
 
 /**
  * Initialize a new array
@@ -22,41 +28,48 @@ Array *NewArray()
    arr->capacity = DEFAULT_ARR_CAPACITY;  // set property to default
    arr->length = 0;
    arr->items = calloc(DEFAULT_ARR_CAPACITY, sizeof(void *));
-   arr->Get = ArrayGet; // set built-in methods
-   arr->Append = ArrayAppend;
-   arr->Concat = ArrayConcat;
-   arr->Swap = ArraySwap;
+
+   arr->Append = ArrayAppend; // set built-in methods
+   arr->Reset = ArrayReset;
    arr->Pop = ArrayPop;
+   arr->Get = ArrayGet; 
+   arr->Last = ArrayLast;
    return arr;
 }
 
-void ArraySwap(Array *arr, int i, int j)
+void ArrayReset(Array *arr, void (*callback)(void *))
 {
-   void *temp = arr->items[i];
-   arr->items[i] = arr->items[j];
-   arr->items[j] = temp;
+   clean(arr, callback);
+   free(arr->items);
+   arr->length = 0;
+   arr->capacity = DEFAULT_ARR_CAPACITY;
+   arr->items = calloc(DEFAULT_ARR_CAPACITY, sizeof(void *));
 }
 
-Array *ArrayConcat(Array *arr1, Array *arr2)
+void* ArrayLast(Array *arr)
 {
-   for (int arrIndex = 0; arrIndex < arr2->length; arrIndex++)
-      ArrayAppend(arr1, ArrayGet(arr2, arrIndex));
-   free(arr2->items);
-   free(arr2);
-   return arr1;
+   return arr->items[arr->length - 1];
+}
+
+/**
+ * Free all memories recursively
+ * Array *arr: the array pointer that needs to be freed
+ */
+void DeleteArray(Array *arr)
+{
+   free(arr->items);
+   free(arr);
 }
 
 /**
  * Free all memories recursively, including its items.
  * Array *arr: the array pointer that needs to be freed
- * int option: 1 if delete array values at the same time, 0 otherwise
+ * void (void*): the callback function to free item.
  */
-void DeleteArray(Array *arr)
+void DeleteArrayAndItsItems(Array *arr, void (*callback)(void *))
 {
-   for (int i = 0; i < arr->length; i++)
-      free(arr->items[i]);
-   free(arr->items);
-   free(arr);
+   clean(arr, callback);
+   DeleteArray(arr);
 }
 
 /**

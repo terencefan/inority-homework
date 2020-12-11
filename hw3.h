@@ -55,14 +55,12 @@ struct _RegexState
     int regexIndex;
     int strIndex;
 
-    RegexState *prev;
-    int ref;
-
     // for capturing group matching.
     RegexIter *iter;
     int occurence;
     int start;
     int end;
+    int last;
 };
 
 struct _RegexIter
@@ -71,10 +69,10 @@ struct _RegexIter
 
     Array *regexArray;
     Array *stack;
+    Array *ongoing;
 
     int start;
     int end;
-    RegexState *current;
 
     int (*next)(RegexIter *iter);
 };
