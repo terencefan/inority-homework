@@ -15,6 +15,12 @@ p123456789
 w(0991)4843933-5527
 (0991)4843933-5527s
 
-blAH bLAh ABCD 0123456789 BLah BlaH bLaH blah
+<footer class="rpi-footer">
 
 <li class="menu__item is-leaf is-parent is-active-trail leaf has-children active-trail menu-mlid-1898"><a href="/computer-science/faculty" class="menu__link is-active-trail active-trail">Faculty</a></li>
+
+<script src="https://science.rpi.edu/sites/default/files/js/js_pgNWhuBA2Bf7S0GoCm2mHrOfqentqhrSSoMzUfeI9Co.js"></script>
+
+<div id="block-block-34" class="block block-block first odd">
+
+blAH bLAh ABCD 0123456789 BLah BlaH bLaH blah

@@ -460,7 +460,6 @@ int regex_match(const char *filename, const char *regex,
    RegexState *state = NULL;
    Array *groupArr = NewArray();
    *captured_groups = 0;
-   int group_matched = 0;
 
    while ((read = getline(&line, &len, fp)) != -1)
    {
@@ -495,7 +494,6 @@ int regex_match(const char *filename, const char *regex,
                   char *buf = calloc(1, state->end - state->start + 1);
                   strncpy(buf, line + state->start, state->end - state->start);
                   groupArr->Append(groupArr, buf);
-                  group_matched = 1;
                }
             }
 
@@ -514,9 +512,9 @@ int regex_match(const char *filename, const char *regex,
    *matches = (char **)matchesArr->items;
    free(matchesArr);
 
-   if (group_matched)
+   if (groupArr->length > 0)
    {
-      *captured_groups = groupArr->length;
+      *captured_groups = groupArr->length - 1;
       *groups = (char **)groupArr->items;
       free(groupArr);
    }
@@ -541,18 +539,18 @@ int main(int argc, char *argv[])
    char *text_file = argv[2];
 
    read_regex_file(regex_file, regex);  // read the regex file
-   int count = regex_match(text_file, regex, &matches, 1, &groups, &captured_groups);   // count total matches
+   int count = regex_match(text_file, regex, &matches, 0, &groups, &captured_groups);   // count total matches
    for (int i = 0; i < count; i++)      // print matches
    {
       printf("matches: %s\n", matches[i]);
       free(matches[i]);
    }
-   printf("last captured groups:\n");
+   printf("last captured groups [%d]:\n", captured_groups);
 
-   for (int i = 1; i < captured_groups; i++)    // print captured group
+   for (int i = 0; i < captured_groups; i++)    // print captured group
    {
-      printf("%d. %s\n", i, groups[i]);
-      free(groups[i]);
+      printf("%d. %s\n", i, groups[i + 1]);
+      free(groups[i + 1]);
    }
 
    if (captured_groups)
