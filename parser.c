@@ -1,12 +1,15 @@
 #include "hw3.h"
 
 #include <ctype.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 int get_character_class_mode(char c);
-
+/**
+ * Init a new RegexItem
+ * int category: category of the regex pattern
+ * returns: pointer of the RegexItem
+ */
 RegexItem *NewRegexItem(int category)
 {
    RegexItem *item = calloc(1, sizeof(RegexItem));
@@ -15,7 +18,11 @@ RegexItem *NewRegexItem(int category)
    item->repeatMin = 1;
    return item;
 }
-
+/**
+ * Init a new RegexItem
+ * char c: character class
+ * returns: pointer of the RegexItem
+ */
 RegexItem *NewCharacterClass(char c)
 {
    DEBUG_LOG("new character class \\%c", c);
@@ -23,15 +30,22 @@ RegexItem *NewCharacterClass(char c)
    item->u.mode = get_character_class_mode(c);
    return item;
 }
-
-RegexItem *NewCharactor(char c)
+/**
+ * Init a new RegexItem
+ * char c: character class
+ * returns: pointer of the RegexItem
+ */
+RegexItem *NewCharacter(char c)
 {
    DEBUG_LOG("new character %c", c);
    RegexItem *item = NewRegexItem(C_SINGLE);
    item->u.c = c;
    return item;
 }
-
+/**
+ * Init a new character group
+ * returns: pointer of the RegexItem
+ */
 RegexItem *NewCharacterGroup()
 {
    DEBUG_LOG("new character group");
@@ -39,39 +53,49 @@ RegexItem *NewCharacterGroup()
    item->u.items = NewArray();
    return item;
 }
-
+/**
+ * get the corresponding regex pattern type
+ * char c: character to classify
+ * returns: class type
+ */
 int get_character_class_mode(char c)
 {
    switch (c)
    {
-   case '.':
+   case '.':                            // any char
       return CLASS_ANY;
-   case 'd':
+   case 'd':                            // digit
       return CLASS_DIGIT;
-   case 'D':
+   case 'D':                            // non-digit
       return CLASS_NDIGIT;
-   case 'w':
+   case 'w':                            // letter
       return CLASS_LETTER;
-   case 'W':
+   case 'W':                            // non-letter
       return CLASS_NLETTER;
-   case 's':
+   case 's':                            // whitespace
       return CLASS_WHITESPACE;
-   case 'S':
+   case 'S':                            // non-whitespace
       return CLASS_NWHITESPACE;
    default:
       ERROR_LOG("Invalid special character: \\%c", c)
    }
    return 0;
 }
-
+/**
+ * Parse the regex string
+ * const char *regex: regex string
+ * int *index: index
+ * int inGroup: if it's inside ()
+ * returns: a RegexItem array
+ */
 Array *parse_regex_array(const char *regex, int *index, int inGroup)
 {
-   Array *regexArr = NewArray();
+   Array *regexArr = NewArray();    // init the array
    int len = strlen(regex);
 
    if (*index < len)
    {
-      switch (regex[*index])
+      switch (regex[*index])        // ignore the repetition
       {
       case '+':
       case '?':
@@ -83,11 +107,11 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
    }
 
    RegexItem *item;
-   for (; *index < len; (*index)++)
+   for (; *index < len; (*index)++) // iterate thru the regex string
    {
       char c = regex[*index];
 
-      switch (c)
+      switch (c)                    // find the corresponding pattern
       {
       case '.':
          item = NewCharacterClass(c); // a single . is a special character class.
@@ -97,7 +121,7 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
          item = parse_escape_character(regex, index);
          regexArr->Append(regexArr, item);
          break;
-      case '(':
+      case '(':                     // a group begin
          if (inGroup)
             ERROR_LOG("capturing group cannot be nested.")
          item = parse_capturing_group(regex, index);
@@ -119,14 +143,14 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
       case ']':
       case '}':
          ERROR_LOG("invalid regex string at position %d", *index)
-      case '^':
+      case '^': // beginning
          if (*index != 0)
             ERROR_LOG("^ must present at the beginning of a valid regex string.")
          item = NewRegexItem(C_BEGINNING);
          DEBUG_LOG("beginning")
          regexArr->Append(regexArr, item);
          break;
-      case '$':
+      case '$': // end
          if (*index != len - 1)
             ERROR_LOG("$ must present at the end of a valid regex string.")
          DEBUG_LOG("ending")
@@ -134,14 +158,19 @@ Array *parse_regex_array(const char *regex, int *index, int inGroup)
          regexArr->Append(regexArr, item);
          break;
       default:
-         item = NewCharactor(c);
+         item = NewCharacter(c);
          regexArr->Append(regexArr, item);
          break;
       }
    }
    return regexArr;
 }
-
+/**
+ * Parse the escape character
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_escape_character(const char *regex, int *index)
 {
    if (regex[*index] != '\\' || (*index + 1) >= strlen(regex))
@@ -164,19 +193,25 @@ RegexItem *parse_escape_character(const char *regex, int *index)
    case ']':
    case '(':
    case ')':
-      return NewCharactor(c);
+      return NewCharacter(c);
    default:
       return NewCharacterClass(regex[*index]);
    }
 }
 
+/**
+ * Parse the character group []
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_character_group(const char *regex, int *index)
 {
    if (regex[*index] != '[' || (*index + 1) >= strlen(regex))
       ERROR_LOG("character group should start with '[' and have at least length of 2")
    *index += 1; // move 1 step forward to skip '\\'
 
-   RegexItem *group = NewCharacterGroup();
+   RegexItem *group = NewCharacterGroup();  // init a new character group
    RegexItem *temp;
    Array *items = group->u.items;
 
@@ -208,7 +243,7 @@ RegexItem *parse_character_group(const char *regex, int *index)
          items->Append(items, temp);
          break;
       default:
-         temp = NewCharactor(c);
+         temp = NewCharacter(c);
          items->Append(items, temp);
          break;
       }
@@ -217,6 +252,12 @@ RegexItem *parse_character_group(const char *regex, int *index)
    return NULL;
 }
 
+/**
+ * Parse the capturing group ()
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_capturing_group(const char *regex, int *index)
 {
    if (regex[*index] != '(')
@@ -224,7 +265,7 @@ RegexItem *parse_capturing_group(const char *regex, int *index)
    *index += 1; // move 1 step forward to skip '('
 
    DEBUG_LOG("start a capturing group")
-   RegexItem *group = NewRegexItem(C_GROUP_CAPTURING);
+   RegexItem *group = NewRegexItem(C_GROUP_CAPTURING);      // init the group and continue parsing
    group->u.items = parse_regex_array(regex, index, 1);
 
    if (regex[*index] != ')')
@@ -233,6 +274,12 @@ RegexItem *parse_capturing_group(const char *regex, int *index)
    return group;
 }
 
+/**
+ * Parse the quantifiers *+? {n}
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current)
 {
    char first = regex[*index];
@@ -268,17 +315,17 @@ RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current)
    while ((*index) < len)
    {
       char c = regex[*index];
-      if (c == ',')
+      if (c == ',')                 // if there's a ',' inside {}
       {
-         if (state == 1)
+         if (state == 1)            // if already has a ','
             ERROR_LOG("quantifier format error, ',' should not appear twice or more.");
-         current->repeatMin = num;
+         current->repeatMin = num;  // set repetition times
          num = 0;
          state = 1;
       }
-      else if (c == '}')
+      else if (c == '}')            // end of the quantifier
       {
-         if (state == 0)
+         if (state == 0)            // set the repetition times
             current->repeatMin = current->repeatMax = num;
          else if (num > 0)
             current->repeatMax = num;
