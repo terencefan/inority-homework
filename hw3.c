@@ -472,7 +472,7 @@ int regex_match(const char *filename, const char *regex,
             char *match;
             if (trim_to_match)  // if result should be trimmed
             {
-               match = calloc(1, iter->end - iter->start);
+               match = calloc(1, iter->end - iter->start + 1);
                strncpy(match, line + iter->start, iter->end - iter->start);
             }
             else
@@ -539,7 +539,7 @@ int main(int argc, char *argv[])
    char *text_file = argv[2];
 
    read_regex_file(regex_file, regex);  // read the regex file
-   int count = regex_match(text_file, regex, &matches, 0, &groups, &captured_groups);   // count total matches
+   int count = regex_match(text_file, regex, &matches, 1, &groups, &captured_groups);   // count total matches
    for (int i = 0; i < count; i++)      // print matches
    {
       printf("matches: %s\n", matches[i]);
