@@ -37,6 +37,9 @@ Array *NewArray()
    return arr;
 }
 
+/**
+ * Clear the given array
+ */
 void ArrayReset(Array *arr, void (*callback)(void *))
 {
    clean(arr, callback);
@@ -46,6 +49,9 @@ void ArrayReset(Array *arr, void (*callback)(void *))
    arr->items = calloc(DEFAULT_ARR_CAPACITY, sizeof(void *));
 }
 
+/**
+ * Returns the last element in the given array
+ */
 void* ArrayLast(Array *arr)
 {
    return arr->items[arr->length - 1];

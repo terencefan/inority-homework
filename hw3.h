@@ -36,7 +36,7 @@ typedef struct
 {
     int category;
 
-    int repeatMin;
+    int repeatMin;  // max and min appear times
     int repeatMax;
 
     union
@@ -50,20 +50,20 @@ typedef struct
 
 } RegexItem;
 
-struct _RegexState
+struct _RegexState  // regex pattern state
 {
     int regexIndex;
     int strIndex;
 
     // for capturing group matching.
     RegexIter *iter;
-    int occurence;
+    int occurrence;
     int start;
     int end;
     int last;
 };
 
-struct _RegexIter
+struct _RegexIter               // iterator for the regex array
 {
     const char *str;
 
@@ -105,13 +105,43 @@ Array *build_regex_array(const char *regex);
 int regex_match_line(const char *line, Array *regexArr, char **matched, char ***groups, int *captured_groups);
 
 // parser.c
-
+/**
+ * Parse the regex string
+ * const char *regex: regex string
+ * int *index: index
+ * int inGroup: if it's inside ()
+ * returns: a RegexItem array
+ */
 Array *parse_regex_array(const char *regex, int *index, int inGroup);
 
+/**
+ * Parse the escape character
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_escape_character(const char *regex, int *index);
 
+/**
+ * Parse the character group []
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_character_group(const char *regex, int *index);
 
+/**
+ * Parse the capturing group ()
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_capturing_group(const char *regex, int *index);
 
+/**
+ * Parse the quantifiers *+?{n}{n,m}
+ * const char *regex: regex string
+ * int *index: index
+ * returns: a RegexItem pointer
+ */
 RegexItem *parse_quantifiers(const char *regex, int *index, RegexItem *current);
