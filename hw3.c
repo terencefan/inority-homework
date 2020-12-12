@@ -336,7 +336,7 @@ void trim_end(char *str)
 {
    for (int index = strlen(str) - 1; index >= 0; index--)
    {
-      if (str[index] == '\n' || isspace(str[index]))
+      if (str[index] == '\n' || str[index] == '\r')
          str[index] = '\0';
       else
          break;
