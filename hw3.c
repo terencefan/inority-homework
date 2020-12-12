@@ -361,6 +361,8 @@ int regex_match(const char *filename, const char *regex,
 
    RegexState *state = NULL;
    Array *groupArr = NewArray();
+   *captured_groups = 0;
+   int group_matched = 0;
 
    while ((read = getline(&line, &len, fp)) != -1)
    {
@@ -395,6 +397,7 @@ int regex_match(const char *filename, const char *regex,
                   char *buf = calloc(1, state->end - state->start + 1);
                   strncpy(buf, line + state->start, state->end - state->start);
                   groupArr->Append(groupArr, buf);
+                  group_matched = 1;
                }
             }
 
@@ -412,9 +415,14 @@ int regex_match(const char *filename, const char *regex,
    *matches = (char **)matchesArr->items;
    free(matchesArr);
 
-   *captured_groups = groupArr->length;
-   *groups = (char **)groupArr->items;
-   free(groupArr);
+   if (group_matched)
+   {
+      *captured_groups = groupArr->length;
+      *groups = (char **)groupArr->items;
+      free(groupArr);
+   }
+   else
+      DELARR(groupArr, free);
 
    DELARR(regexArr, DeleteRegexItem);
    return result;
@@ -448,7 +456,8 @@ int main(int argc, char *argv[])
       free(groups[i]);
    }
 
-   free(groups);
+   if (captured_groups)
+      free(groups);
    free(matches);
    return 0;
 }
